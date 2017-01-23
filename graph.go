@@ -1,6 +1,9 @@
 package gortex
 
-import "fmt"
+import (
+	"fmt"
+	"math"
+)
 
 type Graph struct {
 	NeedsBackprop bool
@@ -73,4 +76,28 @@ func (g *Graph) Mul(m1, m2 *Matrix) *Matrix {
 		})
 	}
 	return out
+}
+
+func (g *Graph) MSE(m1, t *Matrix) float64 {
+	l1 := len(m1.w)
+	l2 := len(t.w)
+	if l1 != l2 {
+		panic(fmt.Errorf("matadd number of elements must be equal numel(m1)=%d must be equal numel(m2)=%d", l1, l2))
+	}
+	mse := 0.0
+	for i := 0; i < l1; i++ {
+		mse += math.Pow(m1.w[i]-t.w[i], 2)
+	}
+	mse /= float64(l1)
+
+	if g.NeedsBackprop {
+		g.backprop = append(g.backprop, func() {
+			b := 2.0 / float64(l1)
+			for i := 0; i < l1; i++ { // loop over rows of m1
+				m1.dw[i] = b * (m1.w[i] - t.w[i]) // 1/d * sum((x-t)^2) derivative keep it math correct no Ng's
+			}
+		})
+	}
+
+	return mse
 }

@@ -6,3 +6,4 @@ func Zeros(n int) []float64 {
 	}
 	return make([]float64, n)
 }
+
