@@ -56,5 +56,5 @@ func RandMat(rows, columns int) *Matrix {
 	for i := range M.w {
 		M.w[i] = rand.NormFloat64() // standard normal distribution (mean = 0, stddev = 1)
 	}
-	return new(Matrix)
+	return M
 }
