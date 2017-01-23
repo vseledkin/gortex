@@ -91,7 +91,7 @@ func TestOptimization(t *testing.T) {
 	G := Graph{}
 	// make computation graph
 	h := G.Add(G.Mul(W, x), b)
-	t.Logf("vector mapped by learned function: %#v\n", h.w)
+	t.Logf("vector mapped by learned function: %#v\n", h.W)
 	if mse > 0.001 {
 		t.Fatalf("model failed to optimize weights of the model mse=%f but must be very close to zero", mse)
 	}

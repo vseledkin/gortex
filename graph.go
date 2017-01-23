@@ -21,15 +21,15 @@ func (g *Graph) Backward() {
 }
 
 func (g *Graph) Add(m1, m2 *Matrix) *Matrix {
-	l1 := len(m1.w)
-	l2 := len(m2.w)
+	l1 := len(m1.W)
+	l2 := len(m2.W)
 	if l1 != l2 {
 		panic(fmt.Errorf("matadd number of elements must be equal numel(m1)=%d must be equal numel(m2)=%d", l1, l2))
 	}
 
 	out := Mat(m1.n, m1.d)
 	for i := 0; i < l1; i++ {
-		out.w[i] = m1.w[i] + m2.w[i]
+		out.W[i] = m1.W[i] + m2.W[i]
 	}
 
 	if g.NeedsBackprop {
@@ -56,9 +56,9 @@ func (g *Graph) Mul(m1, m2 *Matrix) *Matrix {
 		for j := 0; j < m2.d; j++ { // loop over cols of m2
 			dot := 0.0
 			for k := 0; k < m1.d; k++ { // dot product loop
-				dot += m1.w[m1.d*i + k] * m2.w[m2.d*k + j]
+				dot += m1.W[m1.d*i + k] * m2.W[m2.d*k + j]
 			}
-			out.w[d*i + j] = dot
+			out.W[d*i + j] = dot
 		}
 	}
 
@@ -68,8 +68,8 @@ func (g *Graph) Mul(m1, m2 *Matrix) *Matrix {
 				for j := 0; j < m2.d; j++ { // loop over cols of m2
 					for k := 0; k < m1.d; k++ { // dot product loop
 						b := out.dw[d*i + j]
-						m1.dw[m1.d*i + k] += m2.w[m2.d*k + j] * b
-						m2.dw[m2.d*k + j] += m1.w[m1.d*i + k] * b
+						m1.dw[m1.d*i + k] += m2.W[m2.d*k + j] * b
+						m2.dw[m2.d*k + j] += m1.W[m1.d*i + k] * b
 					}
 				}
 			}
@@ -79,14 +79,14 @@ func (g *Graph) Mul(m1, m2 *Matrix) *Matrix {
 }
 
 func (g *Graph) MSE(m1, t *Matrix) float64 {
-	l1 := len(m1.w)
-	l2 := len(t.w)
+	l1 := len(m1.W)
+	l2 := len(t.W)
 	if l1 != l2 {
 		panic(fmt.Errorf("matadd number of elements must be equal numel(m1)=%d must be equal numel(m2)=%d", l1, l2))
 	}
 	mse := 0.0
 	for i := 0; i < l1; i++ {
-		mse += math.Pow(m1.w[i]-t.w[i], 2)
+		mse += math.Pow(m1.W[i]-t.W[i], 2)
 	}
 	mse /= float64(l1)
 
@@ -94,7 +94,7 @@ func (g *Graph) MSE(m1, t *Matrix) float64 {
 		g.backprop = append(g.backprop, func() {
 			b := 2.0 / float64(l1)
 			for i := 0; i < l1; i++ { // loop over rows of m1
-				m1.dw[i] = b * (m1.w[i] - t.w[i]) // 1/d * sum((x-t)^2) derivative keep it math correct no Ng's
+				m1.dw[i] = b * (m1.W[i] - t.W[i]) // 1/d * sum((x-t)^2) derivative keep it math correct no Ng's
 			}
 		})
 	}
