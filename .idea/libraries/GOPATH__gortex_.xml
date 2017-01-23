@@ -1,0 +1,33 @@
+<component name="libraryTable">
+  <library name="GOPATH &lt;gortex&gt;">
+    <CLASSES>
+      <root url="file://$USER_HOME$/go2/src/gopkg.in" />
+      <root url="file://$USER_HOME$/go2/src/stc" />
+      <root url="file://$USER_HOME$/go2/src/mph" />
+      <root url="file://$USER_HOME$/go2/src/vptree" />
+      <root url="file://$USER_HOME$/go2/src/github.com" />
+      <root url="file://$USER_HOME$/go2/src/golang.org" />
+      <root url="file://$USER_HOME$/go2/src/asm" />
+      <root url="file://$USER_HOME$/go2/src/api" />
+      <root url="file://$USER_HOME$/go2/src/services" />
+      <root url="file://$USER_HOME$/go2/src/sourcegraph.com" />
+      <root url="file://$USER_HOME$/go2/src/point" />
+    </CLASSES>
+    <SOURCES>
+      <root url="file://$USER_HOME$/go2/src/gopkg.in" />
+      <root url="file://$USER_HOME$/go2/src/stc" />
+      <root url="file://$USER_HOME$/go2/src/mph" />
+      <root url="file://$USER_HOME$/go2/src/vptree" />
+      <root url="file://$USER_HOME$/go2/src/github.com" />
+      <root url="file://$USER_HOME$/go2/src/golang.org" />
+      <root url="file://$USER_HOME$/go2/src/asm" />
+      <root url="file://$USER_HOME$/go2/src/api" />
+      <root url="file://$USER_HOME$/go2/src/services" />
+      <root url="file://$USER_HOME$/go2/src/sourcegraph.com" />
+      <root url="file://$USER_HOME$/go2/src/point" />
+    </SOURCES>
+    <excluded>
+      <root url="file://$PROJECT_DIR$" />
+    </excluded>
+  </library>
+</component>
