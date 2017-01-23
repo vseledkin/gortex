@@ -4,7 +4,7 @@ Pure go neural network library
 
 
 ## Example code
-
+```go
     // see gortex_test.go
     // learn function to map from any to particular vector
 
@@ -46,7 +46,7 @@ Pure go neural network library
 	if mse > 0.001 {
 		t.Fatalf("model failed to optimize weights of the model mse=%f but must be very close to zero", mse)
 	}
-
+```
 ## Warning: Beta
 
 Very beta
