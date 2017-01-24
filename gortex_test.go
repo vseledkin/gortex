@@ -16,11 +16,11 @@ func TestMatrixMul(t *testing.T) {
 	// the Graph structure keeps track of the connectivities between Mats
 	t.Logf("%#v\n", h)
 
-	if h.n != 2 {
-		t.Fatalf("Must have 2 rows but %d.", h.n)
+	if h.Rows != 2 {
+		t.Fatalf("Must have 2 rows but %d.", h.Rows)
 	}
-	if h.d != 1 {
-		t.Fatalf("Must have 1 column but %d.", h.d)
+	if h.Columns != 1 {
+		t.Fatalf("Must have 1 column but %d.", h.Columns)
 
 	}
 	if h.Get(0, 0) != 14 {
@@ -42,11 +42,11 @@ func TestMatrixMulAdd(t *testing.T) {
 	// the Graph structure keeps track of the connectivities between Mats
 	t.Logf("%#v\n", h)
 
-	if h.n != 2 {
-		t.Fatalf("Must have 2 rows but %d.", h.n)
+	if h.Rows != 2 {
+		t.Fatalf("Must have 2 rows but %d.", h.Rows)
 	}
-	if h.d != 1 {
-		t.Fatalf("Must have 1 column but %d.", h.d)
+	if h.Columns != 1 {
+		t.Fatalf("Must have 1 column but %d.", h.Columns)
 
 	}
 	if h.Get(0, 0) != 15 {

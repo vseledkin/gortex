@@ -10,7 +10,7 @@ func Zeros(n int) []float64 {
 }
 
 func Softmax(m *Matrix) *Matrix {
-	out := Mat(m.n, m.d) // probability volume
+	out := Mat(m.Rows, m.Columns) // probability volume
 	maxval := -math.MaxFloat64
 	l := len(m.W)
 	for i := 0; i < l; i++ {

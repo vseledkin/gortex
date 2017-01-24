@@ -24,10 +24,10 @@ func (g *Graph) Add(m1, m2 *Matrix) *Matrix {
 	l1 := len(m1.W)
 	l2 := len(m2.W)
 	if l1 != l2 {
-		panic(fmt.Errorf("matadd number of elements must be equal numel(m1)=%d must be equal numel(m2)=%d", l1, l2))
+		panic(fmt.Errorf("matadd number of elements must be equal numel(m1)=%Columns must be equal numel(m2)=%Columns", l1, l2))
 	}
 
-	out := Mat(m1.n, m1.d)
+	out := Mat(m1.Rows, m1.Columns)
 	for i := 0; i < l1; i++ {
 		out.W[i] = m1.W[i] + m2.W[i]
 	}
@@ -35,8 +35,8 @@ func (g *Graph) Add(m1, m2 *Matrix) *Matrix {
 	if g.NeedsBackprop {
 		g.backprop = append(g.backprop, func() {
 			for i := 0; i < l1; i++ {
-				m1.dw[i] += out.dw[i]
-				m2.dw[i] += out.dw[i]
+				m1.DW[i] += out.DW[i]
+				m2.DW[i] += out.DW[i]
 			}
 		})
 	}
@@ -45,18 +45,18 @@ func (g *Graph) Add(m1, m2 *Matrix) *Matrix {
 
 func (g *Graph) Mul(m1, m2 *Matrix) *Matrix {
 	// multiply matrices m1 * m2
-	if m1.d != m2.n {
-		panic(fmt.Errorf("matmul dimensions misaligned m1.columns=%d must be equal m2.rows=%d", m1.d, m2.n))
+	if m1.Columns != m2.Rows {
+		panic(fmt.Errorf("matmul dimensions misaligned m1.columns=%Columns must be equal m2.rows=%Columns", m1.Columns, m2.Rows))
 	}
 
-	n := m1.n
-	d := m2.d
+	n := m1.Rows
+	d := m2.Columns
 	out := Mat(n, d)
-	for i := 0; i < m1.n; i++ { // loop over rows of m1
-		for j := 0; j < m2.d; j++ { // loop over cols of m2
+	for i := 0; i < m1.Rows; i++ { // loop over rows of m1
+		for j := 0; j < m2.Columns; j++ { // loop over cols of m2
 			dot := 0.0
-			for k := 0; k < m1.d; k++ { // dot product loop
-				dot += m1.W[m1.d*i + k] * m2.W[m2.d*k + j]
+			for k := 0; k < m1.Columns; k++ { // dot product loop
+				dot += m1.W[m1.Columns*i + k] * m2.W[m2.Columns*k + j]
 			}
 			out.W[d*i + j] = dot
 		}
@@ -64,12 +64,12 @@ func (g *Graph) Mul(m1, m2 *Matrix) *Matrix {
 
 	if g.NeedsBackprop {
 		g.backprop = append(g.backprop, func() {
-			for i := 0; i < m1.n; i++ { // loop over rows of m1
-				for j := 0; j < m2.d; j++ { // loop over cols of m2
-					for k := 0; k < m1.d; k++ { // dot product loop
-						b := out.dw[d*i + j]
-						m1.dw[m1.d*i + k] += m2.W[m2.d*k + j] * b
-						m2.dw[m2.d*k + j] += m1.W[m1.d*i + k] * b
+			for i := 0; i < m1.Rows; i++ { // loop over rows of m1
+				for j := 0; j < m2.Columns; j++ { // loop over cols of m2
+					for k := 0; k < m1.Columns; k++ { // dot product loop
+						b := out.DW[d*i + j]
+						m1.DW[m1.Columns*i + k] += m2.W[m2.Columns*k + j] * b
+						m2.DW[m2.Columns*k + j] += m1.W[m1.Columns*i + k] * b
 					}
 				}
 			}
@@ -82,7 +82,7 @@ func (g *Graph) MSE(m1, t *Matrix) float64 {
 	l1 := len(m1.W)
 	l2 := len(t.W)
 	if l1 != l2 {
-		panic(fmt.Errorf("matadd number of elements must be equal numel(m1)=%d must be equal numel(m2)=%d", l1, l2))
+		panic(fmt.Errorf("matadd number of elements must be equal numel(m1)=%Columns must be equal numel(m2)=%Columns", l1, l2))
 	}
 	mse := 0.0
 	for i := 0; i < l1; i++ {
@@ -94,7 +94,7 @@ func (g *Graph) MSE(m1, t *Matrix) float64 {
 		g.backprop = append(g.backprop, func() {
 			b := 2.0 / float64(l1)
 			for i := 0; i < l1; i++ { // loop over rows of m1
-				m1.dw[i] = b * (m1.W[i] - t.W[i]) // 1/d * sum((x-t)^2) derivative keep it math correct no Ng's
+				m1.DW[i] = b * (m1.W[i] - t.W[i]) // 1/Columns * sum((x-t)^2) derivative keep it math correct no Ng's
 			}
 		})
 	}
