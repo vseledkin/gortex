@@ -77,7 +77,7 @@ func TestOptimization(t *testing.T) {
 	var mse float64
 	model := map[string]*Matrix{"W":W, "b":b}
 	// make 10 optimization steps
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 100; i++ {
 		G := Graph{NeedsBackprop:true}
 		// make computation graph
 		mse = G.MSE(G.Add(G.Mul(W, x), b), target)
@@ -87,13 +87,59 @@ func TestOptimization(t *testing.T) {
 		s.Step(model, 0.02, 0.0001, 5.0)
 		// print error
 		t.Logf("step: %d err: %f\n", i, mse)
+		if mse < 0.0001 {
+			break
+		}
 	}
 	G := Graph{}
 	// make computation graph
 	h := G.Add(G.Mul(W, x), b)
 	t.Logf("vector mapped by learned function: %#v\n", h.W)
-	if mse > 0.001 {
-		t.Fatalf("model failed to optimize weights of the model mse=%f but must be very close to zero", mse)
+	if mse > 0.0001 {
+		t.Fatalf("model failed to optimize weights; mse=%f but must be very close to zero", mse)
+	}
+
+}
+
+func TestOptimizationWithCrossentropy(t *testing.T) {
+	// start from random
+	rand.Seed(time.Now().UnixNano())
+	// model W*x+b weights
+	W := RandMat(10, 4) // weights Matrix
+	b := RandMat(10, 1) // bias vector
+	// random signal to map into target
+	x := RandMat(4, 1) // input vector
+	// target class for model - one out of 10
+	target := 2
+
+	// make optimizer
+	s := NewSolver() // the Solver uses RMSProp
+
+	// update W and b, use learning rate of 0.01,
+	// regularization strength of 0.0001 and clip gradient magnitudes at 5.0
+
+	model := map[string]*Matrix{"W":W, "b":b}
+	// make 10 optimization steps
+	for i := 0; i < 1000; i++ {
+		G := Graph{NeedsBackprop:true}
+		// make computation graph
+		crossentropy, perplexity, probability := G.Crossentropy(G.Add(G.Mul(W, x), b), target)
+		// compute gradients
+		G.Backward()
+		// update model weights
+		s.Step(model, 0.02, 0.0001, 5.0)
+		// print error
+		t.Logf("step: %d crossentropy: %f perplexity: %f probability: %f\n", i, crossentropy, perplexity, probability)
+		if probability > 0.999 {
+			break
+		}
+	}
+	G := Graph{}
+	// make computation graph
+	h := Softmax(G.Add(G.Mul(W, x), b))
+	t.Logf("vector of probabilities given signal x: %#v\n", h.W)
+	if h.W[target] < 0.999 {
+		t.Fatalf("model failed to optimize weights; prediction probability=%f must be very close to one", h.W[target])
 	}
 
 }

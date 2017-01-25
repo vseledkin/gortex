@@ -160,3 +160,27 @@ func (g *Graph) MSE(m1, t *Matrix) float64 {
 
 	return mse
 }
+
+//Crossentropy takes logits vector and list of label id
+func (g *Graph) Crossentropy(m1 *Matrix, label int) (cost, perplexity, probability float64) {
+	l1 := len(m1.W)
+
+	if label < 0 || label >= l1 {
+		panic(fmt.Errorf("label value must be within range [0;numel(m1)]=[0;%d] but %d given", l1-1, label))
+	}
+	// compute probabilities
+	probabilities := Softmax(m1)
+	probability = probabilities.W[label]
+	perplexity = -math.Log2(probability)
+	cost = -math.Log(probability)
+	if g.NeedsBackprop {
+		g.backprop = append(g.backprop, func() {
+			for i:= range m1.DW {
+				m1.DW[i] = probabilities.W[i]
+			}
+			m1.DW[label] -= 1
+		})
+	}
+
+	return
+}
