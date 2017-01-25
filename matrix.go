@@ -12,6 +12,11 @@ type Matrix struct {
 	DW      []float64
 }
 
+func (m *Matrix) SameAs() (mm *Matrix) {
+	mm = Mat(m.Rows, m.Columns)
+	return
+}
+
 func (m *Matrix) Get(row, col int) float64 {
 	// slow but careful accessor function
 	// we want row-major order

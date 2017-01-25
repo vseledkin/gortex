@@ -8,7 +8,7 @@ func Zeros(n int) []float64 {
 	}
 	return make([]float64, n)
 }
-
+//Softmax probability distribution interpretation of any vector/matrix
 func Softmax(m *Matrix) *Matrix {
 	out := Mat(m.Rows, m.Columns) // probability volume
 	maxval := -math.MaxFloat64
