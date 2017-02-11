@@ -153,7 +153,7 @@ func (g *Graph) MSE(m1, t *Matrix) float64 {
 		g.backprop = append(g.backprop, func() {
 			b := 2.0 / float64(l1)
 			for i := 0; i < l1; i++ { // loop over rows of m1
-				m1.DW[i] = b * (m1.W[i] - t.W[i]) // 1/Columns * sum((x-t)^2) derivative keep it math correct no Ng's
+				m1.DW[i] += b * (m1.W[i] - t.W[i]) // 1/Columns * sum((x-t)^2) derivative keep it math correct no Ng's
 			}
 		})
 	}
@@ -176,7 +176,7 @@ func (g *Graph) Crossentropy(m1 *Matrix, label int) (cost, perplexity, probabili
 	if g.NeedsBackprop {
 		g.backprop = append(g.backprop, func() {
 			for i:= range m1.DW {
-				m1.DW[i] = probabilities.W[i]
+				m1.DW[i] += probabilities.W[i]
 			}
 			m1.DW[label] -= 1
 		})
