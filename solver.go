@@ -32,20 +32,21 @@ func (this *Solver) Step(model map[string]*Matrix, step_size, regc, clipval floa
 			// rmsprop adaptive learning rate
 			var mdwi = m.DW[i]
 			s.W[i] = s.W[i]*this.decay_rate + (1.0-this.decay_rate)*mdwi*mdwi
-
-			// gradient clip
-			if mdwi > clipval {
-				mdwi = clipval
-				num_clipped++
-			}
-			if mdwi < -clipval {
-				mdwi = -clipval
-				num_clipped++
+			if clipval > 0 {
+				// gradient clip
+				if mdwi > clipval {
+					mdwi = clipval
+					num_clipped++
+				}
+				if mdwi < -clipval {
+					mdwi = -clipval
+					num_clipped++
+				}
 			}
 			num_tot++
 
 			// update (and regularize)
-			m.W[i] += - step_size*mdwi/math.Sqrt(s.W[i] + this.smooth_eps) - regc*m.W[i]
+			m.W[i] += -step_size*mdwi/math.Sqrt(s.W[i]+this.smooth_eps) - regc*m.W[i]
 			m.DW[i] = 0 // reset gradients for next iteration
 		}
 
