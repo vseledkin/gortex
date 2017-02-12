@@ -25,7 +25,7 @@ func (g *Graph) Tanh(m *Matrix) *Matrix {
 	out := m.SameAs()
 
 	for i := range m.W {
-		out.W[i] = math.Tanh(m.W[i])
+		out.W[i] = float32(math.Tanh(float64(m.W[i])))
 	}
 
 	if g.NeedsBackprop {
@@ -44,7 +44,7 @@ func (g *Graph) Sigmoid(m *Matrix) *Matrix {
 	out := m.SameAs()
 
 	for i := range m.W {
-		out.W[i] = 1.0 / (1.0 + math.Exp(-m.W[i])) // Sigmoid
+		out.W[i] = 1.0 / (1.0 + float32(math.Exp(float64(-m.W[i])))) // Sigmoid
 	}
 
 	if g.NeedsBackprop {
@@ -90,11 +90,11 @@ func (g *Graph) Mul(m1, m2 *Matrix) *Matrix {
 	out := Mat(m1.Rows, m2.Columns)
 	for i := 0; i < m1.Rows; i++ { // loop over rows of m1
 		for j := 0; j < m2.Columns; j++ { // loop over cols of m2
-			dot := 0.0
+			var dot float32
 			for k := 0; k < m1.Columns; k++ { // dot product loop
-				dot += m1.W[m1.Columns*i + k] * m2.W[m2.Columns*k + j]
+				dot += m1.W[m1.Columns*i+k] * m2.W[m2.Columns*k+j]
 			}
-			out.W[m2.Columns*i + j] = dot
+			out.W[m2.Columns*i+j] = dot
 		}
 	}
 
@@ -103,9 +103,9 @@ func (g *Graph) Mul(m1, m2 *Matrix) *Matrix {
 			for i := 0; i < m1.Rows; i++ { // loop over rows of m1
 				for j := 0; j < m2.Columns; j++ { // loop over cols of m2
 					for k := 0; k < m1.Columns; k++ { // dot product loop
-						b := out.DW[m2.Columns*i + j]
-						m1.DW[m1.Columns*i + k] += m2.W[m2.Columns*k + j] * b
-						m2.DW[m2.Columns*k + j] += m1.W[m1.Columns*i + k] * b
+						b := out.DW[m2.Columns*i+j]
+						m1.DW[m1.Columns*i+k] += m2.W[m2.Columns*k+j] * b
+						m2.DW[m2.Columns*k+j] += m1.W[m1.Columns*i+k] * b
 					}
 				}
 			}
@@ -137,21 +137,23 @@ func (g *Graph) EMul(m1, m2 *Matrix) *Matrix {
 	return out
 }
 
-func (g *Graph) MSE(m1, t *Matrix) float64 {
+func (g *Graph) MSE(m1, t *Matrix) float32 {
 	l1 := len(m1.W)
 	l2 := len(t.W)
 	if l1 != l2 {
 		panic(fmt.Errorf("matadd number of elements must be equal numel(m1)=%d must be equal numel(m2)=%d", l1, l2))
 	}
-	mse := 0.0
+	var mse float32
+	var tmp float32
 	for i := 0; i < l1; i++ {
-		mse += math.Pow(m1.W[i]-t.W[i], 2)
+		tmp = m1.W[i] - t.W[i]
+		mse += tmp * tmp
 	}
-	mse /= float64(l1)
+	mse /= float32(l1)
 
 	if g.NeedsBackprop {
 		g.backprop = append(g.backprop, func() {
-			b := 2.0 / float64(l1)
+			b := 2.0 / float32(l1)
 			for i := 0; i < l1; i++ { // loop over rows of m1
 				m1.DW[i] += b * (m1.W[i] - t.W[i]) // 1/Columns * sum((x-t)^2) derivative keep it math correct no Ng's
 			}
@@ -162,7 +164,7 @@ func (g *Graph) MSE(m1, t *Matrix) float64 {
 }
 
 //Crossentropy takes logits vector and list of label id
-func (g *Graph) Crossentropy(m1 *Matrix, label int) (cost, perplexity, probability float64) {
+func (g *Graph) Crossentropy(m1 *Matrix, label int) (cost, perplexity, probability float32) {
 	l1 := len(m1.W)
 
 	if label < 0 || label >= l1 {
@@ -171,11 +173,11 @@ func (g *Graph) Crossentropy(m1 *Matrix, label int) (cost, perplexity, probabili
 	// compute probabilities
 	probabilities := Softmax(m1)
 	probability = probabilities.W[label]
-	perplexity = -math.Log2(probability)
-	cost = -math.Log(probability)
+	perplexity = float32(-math.Log2(float64(probability)))
+	cost = float32(-math.Log(float64(probability)))
 	if g.NeedsBackprop {
 		g.backprop = append(g.backprop, func() {
-			for i:= range m1.DW {
+			for i := range m1.DW {
 				m1.DW[i] += probabilities.W[i]
 			}
 			m1.DW[label] -= 1

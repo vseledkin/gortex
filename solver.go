@@ -3,8 +3,8 @@ package gortex
 import "math"
 
 type Solver struct {
-	decay_rate float64
-	smooth_eps float64
+	decay_rate float32
+	smooth_eps float32
 	step_cache map[string]*Matrix
 }
 
@@ -16,11 +16,11 @@ func NewSolver() *Solver {
 	return s
 }
 
-func (this *Solver) Step(model map[string]*Matrix, step_size, regc, clipval float64) map[string]float64 {
+func (this *Solver) Step(model map[string]*Matrix, step_size, regc, clipval float32) map[string]float32 {
 	// perform parameter update
-	solver_stats := make(map[string]float64)
-	num_clipped := 0.0
-	num_tot := 0.0
+	solver_stats := make(map[string]float32)
+	var num_clipped, num_tot float32
+
 	for k, m := range model {
 		s, ok := this.step_cache[k]
 		if !ok {
@@ -46,7 +46,7 @@ func (this *Solver) Step(model map[string]*Matrix, step_size, regc, clipval floa
 			num_tot++
 
 			// update (and regularize)
-			m.W[i] += -step_size*mdwi/math.Sqrt(s.W[i]+this.smooth_eps) - regc*m.W[i]
+			m.W[i] += -step_size*mdwi/float32(math.Sqrt(float64(s.W[i]+this.smooth_eps))) - regc*m.W[i]
 			m.DW[i] = 0 // reset gradients for next iteration
 		}
 

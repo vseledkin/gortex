@@ -2,16 +2,14 @@ package gortex
 
 import "math"
 
-func Zeros(n int) []float64 {
-	if n <= 0 {
-		return []float64{}
-	}
-	return make([]float64, n)
+func Zeros(n int) []float32 {
+	return make([]float32, n)
 }
+
 //Softmax probability distribution interpretation of any vector/matrix
 func Softmax(m *Matrix) *Matrix {
 	out := Mat(m.Rows, m.Columns) // probability volume
-	maxval := -math.MaxFloat64
+	var maxval float32 = -math.MaxFloat32
 	l := len(m.W)
 	for i := 0; i < l; i++ {
 		if m.W[i] > maxval {
@@ -19,9 +17,9 @@ func Softmax(m *Matrix) *Matrix {
 		}
 	}
 
-	s := 0.0
+	var s float32
 	for i := 0; i < l; i++ {
-		out.W[i] = math.Exp(m.W[i] - maxval)
+		out.W[i] = float32(math.Exp(float64(m.W[i] - maxval)))
 		s += out.W[i]
 	}
 

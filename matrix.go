@@ -8,8 +8,8 @@ import (
 type Matrix struct {
 	Rows    int //number of rows
 	Columns int // number of columns
-	W       []float64
-	DW      []float64
+	W       []float32
+	DW      []float32
 }
 
 func (m *Matrix) SameAs() (mm *Matrix) {
@@ -17,7 +17,7 @@ func (m *Matrix) SameAs() (mm *Matrix) {
 	return
 }
 
-func (m *Matrix) Get(row, col int) float64 {
+func (m *Matrix) Get(row, col int) float32 {
 	// slow but careful accessor function
 	// we want row-major order
 	ix := (m.Columns * row) + col
@@ -28,7 +28,7 @@ func (m *Matrix) Get(row, col int) float64 {
 	}
 }
 
-func (m *Matrix) Set(row, col int, v float64) {
+func (m *Matrix) Set(row, col int, v float32) {
 	ix := (m.Columns * row) + col
 	if ix >= 0 && ix < len(m.W) {
 		m.W[ix] = v
@@ -37,7 +37,7 @@ func (m *Matrix) Set(row, col int, v float64) {
 	}
 }
 
-func MatFromSlice(w [][]float64) *Matrix {
+func MatFromSlice(w [][]float32) *Matrix {
 	M := new(Matrix)
 	M.Rows = len(w)
 	M.Columns = len(w[0])
@@ -59,7 +59,7 @@ func Mat(rows, columns int) *Matrix {
 func RandMat(rows, columns int) *Matrix {
 	M := Mat(rows, columns)
 	for i := range M.W {
-		M.W[i] = rand.NormFloat64() // standard normal distribution (mean = 0, stddev = 1)
+		M.W[i] = float32(rand.NormFloat64()) // standard normal distribution (mean = 0, stddev = 1)
 	}
 	return M
 }

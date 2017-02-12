@@ -7,7 +7,7 @@ func NewSGDSolver() *SGDSolver {
 	return s
 }
 
-func (this *SGDSolver) Step(model map[string]*Matrix, step_size float64) {
+func (this *SGDSolver) Step(model map[string]*Matrix, step_size float32) {
 	for _, m := range model {
 		for i := range m.W {
 			m.W[i] += -step_size * m.DW[i]
