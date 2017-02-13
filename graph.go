@@ -5,6 +5,8 @@ import (
 	"math"
 )
 
+const epsilon = 1e-9
+
 type Graph struct {
 	NeedsBackprop bool
 
@@ -18,6 +20,24 @@ func (g *Graph) Backward() {
 	for i := len(g.backprop) - 1; i >= 0; i-- {
 		g.backprop[i]() // tick!
 	}
+}
+
+func (g *Graph) InstanceNormalization(m *Matrix) *Matrix {
+	mean, variance := Moments(m)
+	stdDev := float32(math.Sqrt(float64((variance))))
+	out := m.SameAs()
+	for i := range m.W {
+		out.W[i] = (m.W[i] - mean) / (stdDev + epsilon)
+	}
+	if g.NeedsBackprop {
+		g.backprop = append(g.backprop, func() {
+			for i := range m.W {
+				// grad for z = tanh(x) is (1 - z^2)
+				m.DW[i] += out.DW[i] / stdDev
+			}
+		})
+	}
+	return out
 }
 
 func (g *Graph) Tanh(m *Matrix) *Matrix {

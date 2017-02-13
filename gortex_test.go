@@ -164,19 +164,20 @@ func TestOptimizationWithCrossentropySGD(t *testing.T) {
 
 	model := map[string]*Matrix{"W": W, "b": b}
 	// make 10 optimization steps
-	for i := 0; i < 10000; i++ {
+	for i := 0; i < 10; i++ {
 		G := Graph{NeedsBackprop: true}
 		// make computation graph
-		first := G.Add(G.Mul(W, x), b)
+		first := G.Tanh(G.Add(G.Mul(W, x), b))
+		//first := G.Tanh(G.InstanceNormalization(G.Add(G.Mul(W, x), b)))
 		output := G.Mul(W1, first)
 		crossentropy, perplexity, probability := G.Crossentropy(output, target)
 		// compute gradients
 		G.Backward()
 		// update model weights
-		s.Step(model, 0.001, 0, 0)
+		s.Step(model, 0.01, 0, 0)
 		// print error
 		t.Logf("step: %d crossentropy: %f perplexity: %f probability: %f\n", i, crossentropy, perplexity, probability)
-		if probability > 0.999 {
+		if probability > 0.99 {
 			break
 		}
 	}
@@ -184,7 +185,7 @@ func TestOptimizationWithCrossentropySGD(t *testing.T) {
 	// make computation graph
 	h := Softmax(G.Mul(W1, G.Add(G.Mul(W, x), b)))
 	t.Logf("vector of probabilities given signal x: %#v\n", h.W)
-	if h.W[target] < 0.999 {
+	if h.W[target] < 0.99 {
 		t.Fatalf("model failed to optimize weights; prediction probability=%f must be very close to one", h.W[target])
 	}
 

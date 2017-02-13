@@ -18,16 +18,27 @@ func Softmax(m *Matrix) *Matrix {
 		}
 	}
 
-	var s float32
 	for i := 0; i < l; i++ {
 		out.W[i] = float32(math.Exp(float64(m.W[i] - maxval)))
-		s += out.W[i]
 	}
-
-	assembler.Sscale(1/s, out.W)
+	sum := assembler.Ssum(out.W)
+	assembler.Sscale(1/sum, out.W)
 
 	// no backward pass here needed
 	// since we will use the computed probabilities outside
 	// to set gradients directly on m
 	return out
+}
+
+func Moments(m *Matrix) (mean, variance float32) {
+	mean = assembler.Ssum(m.W) / float32(len(m.W))
+
+	var total float32
+	var tmp float32
+	for i := range m.W {
+		tmp = m.W[i] - mean
+		total += tmp * tmp
+	}
+	variance = total / float32(len(m.W)-1)
+	return
 }
