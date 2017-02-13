@@ -1,6 +1,7 @@
 package gortex
 
 import "math"
+import "github.com/vseledkin/gortex/assembler"
 
 func Zeros(n int) []float32 {
 	return make([]float32, n)
@@ -23,9 +24,7 @@ func Softmax(m *Matrix) *Matrix {
 		s += out.W[i]
 	}
 
-	for i := 0; i < l; i++ {
-		out.W[i] /= s
-	}
+	assembler.Sscale(1/s, out.W)
 
 	// no backward pass here needed
 	// since we will use the computed probabilities outside
