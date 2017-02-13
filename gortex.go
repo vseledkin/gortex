@@ -39,6 +39,6 @@ func Moments(m *Matrix) (mean, variance float32) {
 		tmp = m.W[i] - mean
 		total += tmp * tmp
 	}
-	variance = total / float32(len(m.W)-1)
+	variance = total / float32(len(m.W))
 	return
 }
