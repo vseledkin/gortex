@@ -31,9 +31,9 @@ func (g *Graph) InstanceNormalization(m *Matrix) *Matrix {
 	}
 	if g.NeedsBackprop {
 		g.backprop = append(g.backprop, func() {
+			scale := (1.0 - 1.0/float32(len(m.W))) / (stdDev + epsilon)
 			for i := range m.W {
-				// grad for z = tanh(x) is (1 - z^2)
-				m.DW[i] += out.DW[i] / stdDev
+				m.DW[i] += scale * out.DW[i]
 			}
 		})
 	}

@@ -62,8 +62,8 @@ func TestOptimization(t *testing.T) {
 	// start from random
 	rand.Seed(time.Now().UnixNano())
 	// model W*x+b weights
-	W := RandMat(10, 4) // weights Matrix
-	b := RandMat(10, 1) // bias vector
+	W := RandXavierMat(10, 4) // weights Matrix
+	b := RandXavierMat(10, 1) // bias vector
 	// random signal to map into target
 	x := RandMat(4, 1) // input vector
 	// target for model
@@ -105,8 +105,8 @@ func TestOptimizationWithCrossentropy1(t *testing.T) {
 	// start from random
 	rand.Seed(time.Now().UnixNano())
 	// model W*x+b weights
-	W := RandMat(10, 4) // weights Matrix
-	b := RandMat(10, 1) // bias vector
+	W := RandXavierMat(10, 4) // weights Matrix
+	b := RandXavierMat(10, 1) // bias vector
 	// random signal to map into target
 	x := RandMat(4, 1) // input vector
 	// target class for model - one out of 10
@@ -148,23 +148,23 @@ func TestOptimizationWithCrossentropySGD(t *testing.T) {
 	// start from random
 	rand.Seed(time.Now().UnixNano())
 	// model W*x+b weights
-	W := RandMat(10, 4)   // weights Matrix
-	b := RandMat(10, 1)   // bias vector
-	W1 := RandMat(10, 10) // weights Matrix
+	W := RandXavierMat(10, 4)   // weights Matrix
+	b := RandXavierMat(10, 1)   // bias vector
+	W1 := RandXavierMat(10, 10) // weights Matrix
 	// random signal to map into target
 	x := RandMat(4, 1) // input vector
 	// target class for model - one out of 10
 	target := 4
 
 	// make optimizer
-	s := NewSolver() // the Solver uses RMSProp
+	s := NewSGDSolver() // the Solver uses RMSProp
 
 	// update W and b, use learning rate of 0.01,
 	// regularization strength of 0.0001 and clip gradient magnitudes at 5.0
 
-	model := map[string]*Matrix{"W": W, "b": b}
+	model := map[string]*Matrix{"W": W, "b": b, "W1": W1}
 	// make 10 optimization steps
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 1000; i++ {
 		G := Graph{NeedsBackprop: true}
 		// make computation graph
 		first := G.Tanh(G.Add(G.Mul(W, x), b))
@@ -174,7 +174,7 @@ func TestOptimizationWithCrossentropySGD(t *testing.T) {
 		// compute gradients
 		G.Backward()
 		// update model weights
-		s.Step(model, 0.01, 0, 0)
+		s.Step(model, 0.03)
 		// print error
 		t.Logf("step: %d crossentropy: %f perplexity: %f probability: %f\n", i, crossentropy, perplexity, probability)
 		if probability > 0.99 {
@@ -183,7 +183,7 @@ func TestOptimizationWithCrossentropySGD(t *testing.T) {
 	}
 	G := Graph{}
 	// make computation graph
-	h := Softmax(G.Mul(W1, G.Add(G.Mul(W, x), b)))
+	h := Softmax(G.Mul(W1, G.Tanh(G.Add(G.Mul(W, x), b))))
 	t.Logf("vector of probabilities given signal x: %#v\n", h.W)
 	if h.W[target] < 0.99 {
 		t.Fatalf("model failed to optimize weights; prediction probability=%f must be very close to one", h.W[target])

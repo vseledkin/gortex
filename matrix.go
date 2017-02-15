@@ -2,6 +2,7 @@ package gortex
 
 import (
 	"fmt"
+	"math"
 	"math/rand"
 )
 
@@ -56,10 +57,21 @@ func Mat(rows, columns int) *Matrix {
 	return M
 }
 
+//RandMat uses standard gaussian initialization scheme
 func RandMat(rows, columns int) *Matrix {
 	M := Mat(rows, columns)
 	for i := range M.W {
 		M.W[i] = float32(rand.NormFloat64()) // standard normal distribution (mean = 0, stddev = 1)
+	}
+	return M
+}
+
+//RandXavierMat uses Xavier 2 / ( fanin + fanout ) initialization scheme
+func RandXavierMat(rows, columns int) *Matrix {
+	variance := 2.0 / float64(columns+rows)
+	M := Mat(rows, columns)
+	for i := range M.W {
+		M.W[i] = float32(rand.NormFloat64() * math.Sqrt(variance)) // standard normal distribution (mean = 0, stddev = 1)
 	}
 	return M
 }
