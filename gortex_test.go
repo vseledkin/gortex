@@ -171,15 +171,15 @@ func TestOptimizationWithCrossentropySGD(t *testing.T) {
 		//first := G.Tanh(G.InstanceNormalization(G.Add(G.Mul(W, x), b)))
 		output := G.Mul(W1, first)
 		crossentropy, perplexity, probability := G.Crossentropy(output, target)
+		t.Logf("step: %d crossentropy: %f perplexity: %f probability: %f\n", i, crossentropy, perplexity, probability)
+		if probability > 0.99 { // stop if we got desired result
+			break
+		}
 		// compute gradients
 		G.Backward()
 		// update model weights
 		s.Step(model, 0.03)
 		// print error
-		t.Logf("step: %d crossentropy: %f perplexity: %f probability: %f\n", i, crossentropy, perplexity, probability)
-		if probability > 0.99 {
-			break
-		}
 	}
 	G := Graph{}
 	// make computation graph
