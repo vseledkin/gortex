@@ -1,6 +1,8 @@
 package gortex
 
 import (
+	"fmt"
+	"math"
 	"math/rand"
 	"testing"
 	"time"
@@ -123,13 +125,13 @@ func TestOptimizationWithCrossentropy1(t *testing.T) {
 	for i := 0; i < 1000; i++ {
 		G := Graph{NeedsBackprop: true}
 		// make computation graph
-		crossentropy, perplexity, probability := G.Crossentropy(G.Add(G.Mul(W, x), b), target)
+		cost, probability := G.Crossentropy(G.Add(G.Mul(W, x), b), target)
 		// compute gradients
 		G.Backward()
 		// update model weights
 		s.Step(model, 0.1, 0.0, 0.0)
 		// print error
-		t.Logf("step: %d crossentropy: %f perplexity: %f probability: %f\n", i, crossentropy, perplexity, probability)
+		t.Logf("step: %d crossentropy: %f perplexity: %f probability: %f\n", i, cost, math.Exp(float64(cost)), probability)
 		if probability > 0.999 {
 			break
 		}
@@ -157,7 +159,7 @@ func TestOptimizationWithCrossentropySGD(t *testing.T) {
 	target := 4
 
 	// make optimizer
-	s := NewSGDSolver() // the Solver uses RMSProp
+	s := NewSGDSolver() // the Solver uses SGD
 
 	// update W and b, use learning rate of 0.01,
 	// regularization strength of 0.0001 and clip gradient magnitudes at 5.0
@@ -170,8 +172,8 @@ func TestOptimizationWithCrossentropySGD(t *testing.T) {
 		first := G.Tanh(G.Add(G.Mul(W, x), b))
 		//first := G.Tanh(G.InstanceNormalization(G.Add(G.Mul(W, x), b)))
 		output := G.Mul(W1, first)
-		crossentropy, perplexity, probability := G.Crossentropy(output, target)
-		t.Logf("step: %d crossentropy: %f perplexity: %f probability: %f\n", i, crossentropy, perplexity, probability)
+		cost, probability := G.Crossentropy(output, target)
+		t.Logf("step: %d crossentropy: %f perplexity: %f probability: %f\n", i, cost, math.Exp(float64(cost)), probability)
 		if probability > 0.99 { // stop if we got desired result
 			break
 		}
@@ -188,5 +190,83 @@ func TestOptimizationWithCrossentropySGD(t *testing.T) {
 	if h.W[target] < 0.99 {
 		t.Fatalf("model failed to optimize weights; prediction probability=%f must be very close to one", h.W[target])
 	}
+
+}
+
+func TestDeltaRNN(t *testing.T) {
+	// start from random
+	rand.Seed(time.Now().UnixNano())
+	trainFile := "ptb.train.txt"
+	dic, e := DictionaryFromFile(trainFile, CharSplitter{})
+	if e != nil {
+		t.Fatal(e)
+	}
+	embedding_size := 64
+	hidden_size := 64
+	fmt.Printf("Dictionary has %d tokens\n", dic.Len())
+	fmt.Printf("%s\n", dic)
+
+	s := NewSolver() // the Solver uses RMSPROP
+	rnn := MakeRNN(embedding_size, hidden_size, dic.Len())
+	//t.Logf("%s\n", rnn)
+	LookupTable := RandXavierMat(embedding_size, dic.Len()) // Lookup Table matrix
+
+	h0 := Mat(hidden_size, 1) // vector of zeros
+	// define model parameters
+	model := rnn.Model("RNN")
+	model["LookupTable"] = LookupTable
+	count := 0
+	ma_ppl := NewMovingAverage(50)
+	ma_nll := NewMovingAverage(50)
+	//batch_size := 16
+
+	SampleVisitor(trainFile, CharSplitter{}, dic, func(x []int) {
+		if len(x) > 1 {
+			// map term indexes in dictionary to embedding vectors
+			G := Graph{NeedsBackprop: true}
+			var yt *Matrix
+			ht := h0
+			var x_cost, x_probability float32
+			// make forward through rnn through time
+			for time, term_id := range x[:len(x)-1] {
+				xt := G.Lookup(LookupTable, term_id)
+
+				ht, yt = rnn.Step(&G, xt, ht)
+				// out task at each time step is to predict next symbol from rnn output
+				cost, probability := G.Crossentropy(yt, x[time+1])
+				x_cost += cost
+				x_probability *= probability
+				//t.Logf("step: %d crossentropy: %f perplexity: %f probability: %f\n", time, crossentropy, perplexity, probability)
+			}
+			x_cost /= float32(len(x) - 1)
+			x_perplexity := float32(math.Exp(float64(x_cost)))
+			ma_ppl.Add(x_perplexity)
+			ma_nll.Add(x_cost)
+			fmt.Printf("step: %d nll: %f perplexity: %f probability: %f\n", count, ma_nll.Avg(), ma_ppl.Avg(), x_probability)
+			// compute gradients
+			//fmt.Printf("Before %#v", xt0.DW)
+			//for row := 0; row < LookupTable.Rows; row++ {
+			//	fmt.Printf("Before %#v", LookupTable.GetGradient(row, firstIndex))
+			//}
+			G.Backward()
+			//fmt.Printf("After %#v", xt0.DW)
+			//fmt.Printf("\n")
+			//for row := 0; row < LookupTable.Rows; row++ {
+			//	fmt.Printf("After %f %f\n", LookupTable.Get(row, dic.Token2ID["the"]), LookupTable.GetGradient(row, dic.Token2ID["the"]))
+			//	if row == 5 {
+			//		break
+			//	}
+			//}
+			//fmt.Printf("\n")
+			// update model weights
+			//if count > 0 && count%batch_size == 0 {
+			s.Step(model, 0.001, 0, 0)
+			//fmt.Printf("step: %d clipped: %f\n", count, stats["ratio_clipped"])
+
+			//}
+			count++
+
+		}
+	})
 
 }

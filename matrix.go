@@ -38,6 +38,35 @@ func (m *Matrix) Set(row, col int, v float32) {
 	}
 }
 
+func (m *Matrix) GetGradient(row, col int) float32 {
+	// slow but careful accessor function
+	// we want row-major order
+	ix := (m.Columns * row) + col
+	if ix >= 0 && ix < len(m.DW) {
+		return m.DW[ix]
+	} else {
+		panic(fmt.Errorf("mat element access error index %Columns out of range", ix))
+	}
+}
+
+func (m *Matrix) SetGradient(row, col int, v float32) {
+	ix := (m.Columns * row) + col
+	if ix >= 0 && ix < len(m.DW) {
+		m.DW[ix] = v
+	} else {
+		panic(fmt.Errorf("mat element access error index %Columns out of range", ix))
+	}
+}
+
+func (m *Matrix) AddGradient(row, col int, v float32) {
+	ix := (m.Columns * row) + col
+	if ix >= 0 && ix < len(m.DW) {
+		m.DW[ix] += v
+	} else {
+		panic(fmt.Errorf("mat element access error index %Columns out of range", ix))
+	}
+}
+
 func MatFromSlice(w [][]float32) *Matrix {
 	M := new(Matrix)
 	M.Rows = len(w)

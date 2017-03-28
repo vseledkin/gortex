@@ -59,6 +59,23 @@ func (g *Graph) Tanh(m *Matrix) *Matrix {
 	return out
 }
 
+func (g *Graph) Lookup(lt *Matrix, i int) *Matrix {
+	// pickup column at index i from lookup table
+	out := Mat(lt.Rows, 1)
+	for row := 0; row < lt.Rows; row++ {
+		out.W[row] = lt.Get(row, i)
+	}
+
+	if g.NeedsBackprop {
+		g.backprop = append(g.backprop, func() {
+			for row := 0; row < lt.Rows; row++ {
+				lt.AddGradient(row, i, out.DW[row])
+			}
+		})
+	}
+	return out
+}
+
 func (g *Graph) Sigmoid(m *Matrix) *Matrix {
 	// sigmoid nonlinearity
 	out := m.SameAs()
@@ -184,7 +201,7 @@ func (g *Graph) MSE(m1, t *Matrix) float32 {
 }
 
 //Crossentropy takes logits vector and list of label id
-func (g *Graph) Crossentropy(m1 *Matrix, label int) (cost, perplexity, probability float32) {
+func (g *Graph) Crossentropy(m1 *Matrix, label int) (cost, probability float32) {
 	l1 := len(m1.W)
 
 	if label < 0 || label >= l1 {
@@ -193,7 +210,6 @@ func (g *Graph) Crossentropy(m1 *Matrix, label int) (cost, perplexity, probabili
 	// compute probabilities
 	probabilities := Softmax(m1)
 	probability = probabilities.W[label]
-	perplexity = float32(-math.Log2(float64(probability)))
 	cost = float32(-math.Log(float64(probability)))
 	if g.NeedsBackprop {
 		g.backprop = append(g.backprop, func() {
