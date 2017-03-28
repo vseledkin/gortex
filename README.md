@@ -2,7 +2,12 @@
 
 Pure go neural network library
 
-
+## Example code
+    
+    Features: 
+        autodifferentiation
+        rnn models support
+        language model sample (in test)
 ## Example code
 ```go
     // see gortex_test.go
