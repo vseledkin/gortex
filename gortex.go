@@ -1,10 +1,20 @@
 package gortex
 
 import "math"
-import "github.com/vseledkin/gortex/assembler"
+import (
+	"clustext/asm"
+
+	"github.com/vseledkin/gortex/assembler"
+)
 
 func Zeros(n int) []float32 {
 	return make([]float32, n)
+}
+
+func ScaleGradient(model map[string]*Matrix, v float32) {
+	for _, m := range model {
+		asm.Sscale(v, m.DW)
+	}
 }
 
 //Softmax probability distribution interpretation of any vector/matrix

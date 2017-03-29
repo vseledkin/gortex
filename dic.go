@@ -67,8 +67,8 @@ func DictionaryFromFile(file string, s Tokenizer) (*Dictionary, error) {
 		}
 	}
 	f.Close()
-	if _, ok := dic.Token2ID[UNK]; !ok {
-		dic.Token2ID[UNK] = len(dic.Token2ID)
-	}
+	//if _, ok := dic.Token2ID[UNK]; !ok {
+	//	dic.Token2ID[UNK] = len(dic.Token2ID)
+	//}
 	return dic, nil
 }

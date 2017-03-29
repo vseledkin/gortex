@@ -206,10 +206,12 @@ func TestDeltaRNN(t *testing.T) {
 	fmt.Printf("Dictionary has %d tokens\n", dic.Len())
 	fmt.Printf("%s\n", dic)
 
+	//s := NewSGDSolver() // the Solver uses SGD
 	s := NewSolver() // the Solver uses RMSPROP
 	rnn := MakeRNN(embedding_size, hidden_size, dic.Len())
+	//rnn := MakeGRU(embedding_size, hidden_size, dic.Len())
 	//t.Logf("%s\n", rnn)
-	LookupTable := RandXavierMat(embedding_size, dic.Len()) // Lookup Table matrix
+	LookupTable := RandMat(embedding_size, dic.Len()) // Lookup Table matrix
 
 	h0 := Mat(hidden_size, 1) // vector of zeros
 	// define model parameters
@@ -219,7 +221,7 @@ func TestDeltaRNN(t *testing.T) {
 	ma_ppl := NewMovingAverage(50)
 	ma_nll := NewMovingAverage(50)
 	ma_bpc := NewMovingAverage(50)
-	//batch_size := 16
+	batch_size := 16
 
 	SampleVisitor(trainFile, CharSplitter{}, dic, func(x []int) {
 		if len(x) > 10 {
@@ -251,19 +253,20 @@ func TestDeltaRNN(t *testing.T) {
 			G.Backward()
 
 			// update model weights
-			//if count > 0 && count%batch_size == 0 {
-			s.Step(model, 0.001, 0, 0)
-			if count%10 == 0 {
+			count++
+			if count > 0 && count%batch_size == 0 {
+				ScaleGradient(model, 1/float32(len(x)-1)/float32(batch_size))
+				s.Step(model, 0.001, 0, 5.0)
 				fmt.Printf("step: %d nll: %f perplexity: %f bpc: %f probability: %f\n", count, ma_nll.Avg(), ma_ppl.Avg(), ma_bpc.Avg(), x_probability)
 			}
+			//s.Step(model, 0.01)
 
-			count++
 		}
 		if count%100 == 0 { // print some model generated text
-			fmt.Printf("MODEL GENERATED TEXT:\n")
+			fmt.Printf("MODEL GENERATED TEXT: ")
 			G := Graph{NeedsBackprop: false}
-			ht := h0
-			term_id := 10
+			ht := RandMat(hidden_size, 1)
+			term_id := int(rand.Int31n(int32(dic.Len())))
 			var logits *Matrix
 			for i := 0; i < 100; i++ {
 				xt := G.Lookup(LookupTable, term_id)

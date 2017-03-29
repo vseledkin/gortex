@@ -118,6 +118,29 @@ func (g *Graph) Add(m1, m2 *Matrix) *Matrix {
 	return out
 }
 
+func (g *Graph) Sub(m1, m2 *Matrix) *Matrix {
+	l1 := len(m1.W)
+	l2 := len(m2.W)
+	if l1 != l2 {
+		panic(fmt.Errorf("matsub number of elements must be equal numel(m1)=%d must be equal numel(m2)=%d", l1, l2))
+	}
+
+	out := m1.SameAs()
+	for i := 0; i < l1; i++ {
+		out.W[i] = m1.W[i] - m2.W[i]
+	}
+
+	if g.NeedsBackprop {
+		g.backprop = append(g.backprop, func() {
+			for i := 0; i < l1; i++ {
+				m1.DW[i] += out.DW[i]
+				m2.DW[i] += -out.DW[i]
+			}
+		})
+	}
+	return out
+}
+
 func (g *Graph) Mul(m1, m2 *Matrix) *Matrix {
 	// multiply matrices m1 * m2
 	if m1.Columns != m2.Rows {

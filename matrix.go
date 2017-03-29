@@ -18,6 +18,19 @@ func (m *Matrix) SameAs() (mm *Matrix) {
 	return
 }
 
+func (m *Matrix) ZerosAs() (mm *Matrix) {
+	mm = Mat(m.Rows, m.Columns)
+	return
+}
+
+func (m *Matrix) OnesAs() (mm *Matrix) {
+	mm = Mat(m.Rows, m.Columns)
+	for i := range mm.W {
+		mm.W[i] = 1.0
+	}
+	return
+}
+
 func (m *Matrix) Get(row, col int) float32 {
 	// slow but careful accessor function
 	// we want row-major order
