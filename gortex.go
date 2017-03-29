@@ -42,3 +42,15 @@ func Moments(m *Matrix) (mean, variance float32) {
 	variance = total / float32(len(m.W))
 	return
 }
+
+func MaxIV(m *Matrix) (int, float32) {
+	var max float32 = -math.MaxFloat32
+	maxIndex := -1
+	for i, v := range m.W {
+		if v > max {
+			max = v
+			maxIndex = i
+		}
+	}
+	return maxIndex, max
+}

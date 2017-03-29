@@ -201,8 +201,8 @@ func TestDeltaRNN(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	embedding_size := 64
-	hidden_size := 64
+	embedding_size := 128
+	hidden_size := 128
 	fmt.Printf("Dictionary has %d tokens\n", dic.Len())
 	fmt.Printf("%s\n", dic)
 
@@ -218,17 +218,20 @@ func TestDeltaRNN(t *testing.T) {
 	count := 0
 	ma_ppl := NewMovingAverage(50)
 	ma_nll := NewMovingAverage(50)
+	ma_bpc := NewMovingAverage(50)
 	//batch_size := 16
 
 	SampleVisitor(trainFile, CharSplitter{}, dic, func(x []int) {
-		if len(x) > 1 {
+		if len(x) > 10 {
 			// map term indexes in dictionary to embedding vectors
 			G := Graph{NeedsBackprop: true}
 			var yt *Matrix
 			ht := h0
 			var x_cost, x_probability float32
+			//fmt.Printf("X:\n")
 			// make forward through rnn through time
 			for time, term_id := range x[:len(x)-1] {
+				//fmt.Printf("%s", dic.TokenByID(term_id))
 				xt := G.Lookup(LookupTable, term_id)
 
 				ht, yt = rnn.Step(&G, xt, ht)
@@ -238,34 +241,38 @@ func TestDeltaRNN(t *testing.T) {
 				x_probability *= probability
 				//t.Logf("step: %d crossentropy: %f perplexity: %f probability: %f\n", time, crossentropy, perplexity, probability)
 			}
+			//fmt.Printf("\n")
 			x_cost /= float32(len(x) - 1)
+			ma_bpc.Add(x_cost / math.Ln2)
 			x_perplexity := float32(math.Exp(float64(x_cost)))
 			ma_ppl.Add(x_perplexity)
 			ma_nll.Add(x_cost)
-			fmt.Printf("step: %d nll: %f perplexity: %f probability: %f\n", count, ma_nll.Avg(), ma_ppl.Avg(), x_probability)
 			// compute gradients
-			//fmt.Printf("Before %#v", xt0.DW)
-			//for row := 0; row < LookupTable.Rows; row++ {
-			//	fmt.Printf("Before %#v", LookupTable.GetGradient(row, firstIndex))
-			//}
 			G.Backward()
-			//fmt.Printf("After %#v", xt0.DW)
-			//fmt.Printf("\n")
-			//for row := 0; row < LookupTable.Rows; row++ {
-			//	fmt.Printf("After %f %f\n", LookupTable.Get(row, dic.Token2ID["the"]), LookupTable.GetGradient(row, dic.Token2ID["the"]))
-			//	if row == 5 {
-			//		break
-			//	}
-			//}
-			//fmt.Printf("\n")
+
 			// update model weights
 			//if count > 0 && count%batch_size == 0 {
 			s.Step(model, 0.001, 0, 0)
-			//fmt.Printf("step: %d clipped: %f\n", count, stats["ratio_clipped"])
+			if count%10 == 0 {
+				fmt.Printf("step: %d nll: %f perplexity: %f bpc: %f probability: %f\n", count, ma_nll.Avg(), ma_ppl.Avg(), ma_bpc.Avg(), x_probability)
+			}
 
-			//}
 			count++
-
+		}
+		if count%100 == 0 { // print some model generated text
+			fmt.Printf("MODEL GENERATED TEXT:\n")
+			G := Graph{NeedsBackprop: false}
+			ht := h0
+			term_id := 10
+			var logits *Matrix
+			for i := 0; i < 100; i++ {
+				xt := G.Lookup(LookupTable, term_id)
+				ht, logits = rnn.Step(&G, xt, ht)
+				term_id, _ = MaxIV(Softmax(logits))
+				fmt.Printf("%s", dic.TokenByID(term_id))
+				//t.Logf("step: %d crossentropy: %f perplexity: %f probability: %f\n", time, crossentropy, perplexity, probability)
+			}
+			fmt.Printf("\n")
 		}
 	})
 
