@@ -149,8 +149,8 @@ func (g *Graph) EMul(m1, m2 *Matrix) *Matrix {
 	if g.NeedsBackprop {
 		g.backprop = append(g.backprop, func() {
 			for i := range m1.W {
-				m1.DW[i] += m2.DW[i] * out.DW[i]
-				m2.DW[i] += m1.DW[i] * out.DW[i]
+				m1.DW[i] += m2.W[i] * out.DW[i]
+				m2.DW[i] += m1.W[i] * out.DW[i]
 			}
 		})
 	}
