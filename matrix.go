@@ -80,6 +80,30 @@ func (m *Matrix) AddGradient(row, col int, v float32) {
 	}
 }
 
+func (m *Matrix) NormGradient() float32 {
+	var val float32
+	for i := range m.DW {
+		if m.DW[i] < 0 {
+			val -= m.DW[i]
+		} else {
+			val += m.DW[i]
+		}
+	}
+	return val / float32(len(m.DW))
+}
+
+func (m *Matrix) Norm() float32 {
+	var val float32
+	for i := range m.W {
+		if m.W[i] < 0 {
+			val -= m.W[i]
+		} else {
+			val += m.W[i]
+		}
+	}
+	return val / float32(len(m.W))
+}
+
 func MatFromSlice(w [][]float32) *Matrix {
 	M := new(Matrix)
 	M.Rows = len(w)

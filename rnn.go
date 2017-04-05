@@ -17,7 +17,9 @@ func MakeRNN(x_size, h_size, out_size int) *RNN {
 }
 
 func (rnn *RNN) Model(namespace string) map[string]*Matrix {
-	return map[string]*Matrix{namespace + "_Wxh": rnn.Wxh, namespace + "_Whh": rnn.Whh, namespace + "_Who": rnn.Who, namespace + "_Bias": rnn.Bias}
+	return map[string]*Matrix{
+		namespace + "_Wxh": rnn.Wxh,
+		namespace + "_Whh": rnn.Whh, namespace + "_Who": rnn.Who, namespace + "_Bias": rnn.Bias}
 }
 
 func (rnn *RNN) Step(g *Graph, x, h_prev *Matrix) (h, y *Matrix) {
@@ -25,6 +27,7 @@ func (rnn *RNN) Step(g *Graph, x, h_prev *Matrix) (h, y *Matrix) {
 	// h = tanh( Wxh * x+Whh * h + bias )
 	// y = Who * h
 	h = g.Tanh(g.Add(g.Add(g.Mul(rnn.Wxh, x), g.Mul(rnn.Whh, h_prev)), rnn.Bias))
+
 	y = g.Mul(rnn.Who, g.Tanh(h))
 	return
 }

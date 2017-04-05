@@ -3,15 +3,18 @@ package gortex
 // Gated recurrent unit
 
 type GRU struct {
-	Wz  *Matrix
-	Uz  *Matrix
-	Bz  *Matrix
-	Wr  *Matrix
-	Ur  *Matrix
-	Br  *Matrix
-	Wh  *Matrix
-	Uh  *Matrix
-	Bh  *Matrix
+	Wz *Matrix
+	Uz *Matrix
+	Bz *Matrix
+
+	Wr *Matrix
+	Ur *Matrix
+	Br *Matrix
+
+	Wh *Matrix
+	Uh *Matrix
+	Bh *Matrix
+
 	Who *Matrix
 }
 
@@ -57,8 +60,8 @@ func (rnn *GRU) Step(g *Graph, x, h_prev *Matrix) (h, y *Matrix) {
 	rt := g.Sigmoid(g.Add(g.Add(g.Mul(rnn.Wr, x), g.Mul(rnn.Ur, h_prev)), rnn.Br))
 
 	ht := g.Tanh(g.Add(g.Add(g.Mul(rnn.Wh, x), g.Mul(rnn.Uh, g.EMul(rt, h_prev))), rnn.Bh))
-	h = g.Add(g.EMul(zt, h_prev), g.EMul(g.Sub(zt.OnesAs(), zt), ht))
+	h = g.Add(g.EMul(zt, h_prev, "5"), g.EMul(g.Sub(zt.OnesAs(), zt), ht, "4"), "3")
 
-	y = g.Mul(rnn.Who, g.Tanh(h))
+	y = g.Mul(rnn.Who, g.Tanh(h, "2"), "1")
 	return
 }

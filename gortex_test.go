@@ -208,8 +208,8 @@ func TestDeltaRNN(t *testing.T) {
 
 	//s := NewSGDSolver() // the Solver uses SGD
 	s := NewSolver() // the Solver uses RMSPROP
-	rnn := MakeRNN(embedding_size, hidden_size, dic.Len())
-	//rnn := MakeGRU(embedding_size, hidden_size, dic.Len())
+	//rnn := MakeRNN(embedding_size, hidden_size, dic.Len())
+	rnn := MakeGRU(embedding_size, hidden_size, dic.Len())
 	//t.Logf("%s\n", rnn)
 	LookupTable := RandMat(embedding_size, dic.Len()) // Lookup Table matrix
 
@@ -222,27 +222,47 @@ func TestDeltaRNN(t *testing.T) {
 	ma_nll := NewMovingAverage(50)
 	ma_bpc := NewMovingAverage(50)
 	batch_size := 16
-
+	learning_rate := float32(0.002)
+	anneal_rate := float32(0.999)
 	SampleVisitor(trainFile, CharSplitter{}, dic, func(x []int) {
 		if len(x) > 10 {
 			// map term indexes in dictionary to embedding vectors
-			G := Graph{NeedsBackprop: true}
-			var yt *Matrix
-			ht := h0
 			var x_cost, x_probability float32
 			//fmt.Printf("X:\n")
-			// make forward through rnn through time
-			for time, term_id := range x[:len(x)-1] {
-				//fmt.Printf("%s", dic.TokenByID(term_id))
-				xt := G.Lookup(LookupTable, term_id)
 
-				ht, yt = rnn.Step(&G, xt, ht)
+			// make forward through rnn through time
+			G := &Graph{NeedsBackprop: true}
+			ht := h0
+			for i, term_id := range x[:len(x)-1] {
+				var yt *Matrix
+				ht, yt = rnn.Step(G, G.Lookup(LookupTable, term_id), ht)
+
 				// out task at each time step is to predict next symbol from rnn output
-				cost, probability := G.Crossentropy(yt, x[time+1])
+				cost, probability := G.Crossentropy(yt, x[i+1])
+
 				x_cost += cost
 				x_probability *= probability
 				//t.Logf("step: %d crossentropy: %f perplexity: %f probability: %f\n", time, crossentropy, perplexity, probability)
 			}
+			G.Backward()
+			//for i, hh := range h {
+			//	if hh.NormGradient() == 0 {
+			//		fmt.Printf("BAD h weights %f\n", hh.Norm())
+			//		panic(fmt.Errorf("BAD h gradient %f\n", hh.NormGradient()))
+			//	}
+			//	fmt.Printf("GOOD h %d gradient %f\n", i, hh.NormGradient())
+			//}
+			// backpropagation trought time
+			//for i := len(x) - 2; i > 0; i-- {
+
+			//	graphs[i].Backward()
+			//	fmt.Printf("%s %#v %f %f\n", "Y", y[i].DW[:2], y[i].Norm(), y[i].NormGradient())
+			//	fmt.Printf("%s %#v %f %f\n", "H", h[i].DW[:2], h[i].Norm(), h[i].NormGradient())
+			//	fmt.Printf("%s %#v %f %f\n", "H", h[i-1].DW[:2], h[i-1].Norm(), h[i-1].NormGradient())
+			//if i > 2 {
+			//	h[i-2].DW = h[i-1].DW
+			//}
+			//}
 			//fmt.Printf("\n")
 			x_cost /= float32(len(x) - 1)
 			ma_bpc.Add(x_cost / math.Ln2)
@@ -250,14 +270,19 @@ func TestDeltaRNN(t *testing.T) {
 			ma_ppl.Add(x_perplexity)
 			ma_nll.Add(x_cost)
 			// compute gradients
-			G.Backward()
-
+			//for k, m := range model {
+			//	fmt.Printf("%s %#v %f %f\n", k, m.DW[:2], m.Norm(), m.NormGradient())
+			//}
 			// update model weights
 			count++
 			if count > 0 && count%batch_size == 0 {
+				//for k, m := range model {
+				//	fmt.Printf("%s %#v %f %f\n", k, m.DW[:2], m.Norm(), m.NormGradient())
+				//}
 				ScaleGradient(model, 1/float32(len(x)-1)/float32(batch_size))
-				s.Step(model, 0.001, 0, 5.0)
-				fmt.Printf("step: %d nll: %f perplexity: %f bpc: %f probability: %f\n", count, ma_nll.Avg(), ma_ppl.Avg(), ma_bpc.Avg(), x_probability)
+				s.Step(model, learning_rate, 0, 5.0)
+				fmt.Printf("step: %d nll: %f perplexity: %f bpc: %f lr: %f\n", count, ma_nll.Avg(), ma_ppl.Avg(), ma_bpc.Avg(), learning_rate)
+				learning_rate = learning_rate * anneal_rate
 			}
 			//s.Step(model, 0.01)
 

@@ -9,6 +9,7 @@ const epsilon = 1e-9
 
 type Graph struct {
 	NeedsBackprop bool
+	Print         bool
 
 	// this will store a list of functions that perform backprop,
 	// in their forward pass order. So in backprop we will go
@@ -40,7 +41,7 @@ func (g *Graph) InstanceNormalization(m *Matrix) *Matrix {
 	return out
 }
 
-func (g *Graph) Tanh(m *Matrix) *Matrix {
+func (g *Graph) Tanh(m *Matrix, messages ...string) *Matrix {
 	// tanh nonlinearity
 	out := m.SameAs()
 
@@ -53,6 +54,10 @@ func (g *Graph) Tanh(m *Matrix) *Matrix {
 			for i := range m.W {
 				// grad for z = tanh(x) is (1 - z^2)
 				m.DW[i] += (1.0 - out.W[i]*out.W[i]) * out.DW[i]
+			}
+			if len(messages) > 0 && g.Print {
+				fmt.Printf("%s Tanh In(%p N:%f GN:%f) Out(%p N:%f GN:%f)\n",
+					messages[0], m, m.Norm(), m.NormGradient(), out, out.Norm(), out.NormGradient())
 			}
 		})
 	}
@@ -95,7 +100,7 @@ func (g *Graph) Sigmoid(m *Matrix) *Matrix {
 	return out
 }
 
-func (g *Graph) Add(m1, m2 *Matrix) *Matrix {
+func (g *Graph) Add(m1, m2 *Matrix, messages ...string) *Matrix {
 	l1 := len(m1.W)
 	l2 := len(m2.W)
 	if l1 != l2 {
@@ -112,6 +117,10 @@ func (g *Graph) Add(m1, m2 *Matrix) *Matrix {
 			for i := 0; i < l1; i++ {
 				m1.DW[i] += out.DW[i]
 				m2.DW[i] += out.DW[i]
+			}
+			if len(messages) > 0 && g.Print {
+				fmt.Printf("%s Add In1(%p N:%f GN:%f) In2(%p N:%f GN:%f) Out(%p N:%f GN:%f)\n",
+					messages[0], m1, m1.Norm(), m1.NormGradient(), m2, m2.Norm(), m2.NormGradient(), out, out.Norm(), out.NormGradient())
 			}
 		})
 	}
@@ -141,7 +150,7 @@ func (g *Graph) Sub(m1, m2 *Matrix) *Matrix {
 	return out
 }
 
-func (g *Graph) Mul(m1, m2 *Matrix) *Matrix {
+func (g *Graph) Mul(m1, m2 *Matrix, messages ...string) *Matrix {
 	// multiply matrices m1 * m2
 	if m1.Columns != m2.Rows {
 		panic(fmt.Errorf("matmul dimensions misaligned m1.columns=%d must be equal m2.rows=%d", m1.Columns, m2.Rows))
@@ -157,9 +166,11 @@ func (g *Graph) Mul(m1, m2 *Matrix) *Matrix {
 			out.W[m2.Columns*i+j] = dot
 		}
 	}
-
 	if g.NeedsBackprop {
 		g.backprop = append(g.backprop, func() {
+			//if len(messages) > 0 {
+			//	fmt.Printf("%s Norm:%f GradientNorm:%f\n", messages[0], out.Norm(), out.NormGradient())
+			//}
 			for i := 0; i < m1.Rows; i++ { // loop over rows of m1
 				for j := 0; j < m2.Columns; j++ { // loop over cols of m2
 					for k := 0; k < m1.Columns; k++ { // dot product loop
@@ -169,13 +180,17 @@ func (g *Graph) Mul(m1, m2 *Matrix) *Matrix {
 					}
 				}
 			}
+			if len(messages) > 0 && g.Print {
+				fmt.Printf("%s Mul In1(%p N:%f GN:%f) In2(%p N:%f GN:%f) Out(%p N:%f GN:%f)\n",
+					messages[0], m1, m1.Norm(), m1.NormGradient(), m2, m2.Norm(), m2.NormGradient(), out, out.Norm(), out.NormGradient())
+			}
 		})
 	}
 	return out
 }
 
 // EMul elementwise matrix matrix multiplication
-func (g *Graph) EMul(m1, m2 *Matrix) *Matrix {
+func (g *Graph) EMul(m1, m2 *Matrix, messages ...string) *Matrix {
 	l1 := len(m1.W)
 	l2 := len(m2.W)
 	if l1 != l2 {
@@ -189,8 +204,12 @@ func (g *Graph) EMul(m1, m2 *Matrix) *Matrix {
 	if g.NeedsBackprop {
 		g.backprop = append(g.backprop, func() {
 			for i := range m1.W {
-				m1.DW[i] += m2.DW[i] * out.DW[i]
-				m2.DW[i] += m1.DW[i] * out.DW[i]
+				m1.DW[i] += m2.W[i] * out.DW[i]
+				m2.DW[i] += m1.W[i] * out.DW[i]
+			}
+			if len(messages) > 0 && g.Print {
+				fmt.Printf("%s EMul In1(%p N:%f GN:%f) In2(%p N:%f GN:%f) Out(%p N:%f GN:%f)\n",
+					messages[0], m1, m1.Norm(), m1.NormGradient(), m2, m2.Norm(), m2.NormGradient(), out, out.Norm(), out.NormGradient())
 			}
 		})
 	}

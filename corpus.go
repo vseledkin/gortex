@@ -15,7 +15,11 @@ func SampleVisitor(file string, tokenizer Tokenizer, dictionary *Dictionary, vis
 	for {
 		line, e := r.ReadString('\n')
 		if e != nil {
-			break
+			r = bufio.NewReader(f)
+			line, e = r.ReadString('\n')
+			if e != nil {
+				break
+			}
 		}
 		line = strings.TrimSpace(line)
 		if len(line) > 0 {
