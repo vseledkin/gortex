@@ -202,14 +202,14 @@ func TestDeltaRNN(t *testing.T) {
 		t.Fatal(e)
 	}
 	embedding_size := 128
-	hidden_size := 128
+	hidden_size := 256
 	fmt.Printf("Dictionary has %d tokens\n", dic.Len())
 	fmt.Printf("%s\n", dic)
 
 	//s := NewSGDSolver() // the Solver uses SGD
 	s := NewSolver() // the Solver uses RMSPROP
-	//rnn := MakeRNN(embedding_size, hidden_size, dic.Len())
-	rnn := MakeGRU(embedding_size, hidden_size, dic.Len())
+	rnn := MakeRNN(embedding_size, hidden_size, dic.Len())
+	//rnn := MakeGRU(embedding_size, hidden_size, dic.Len())
 	//t.Logf("%s\n", rnn)
 	LookupTable := RandMat(embedding_size, dic.Len()) // Lookup Table matrix
 
