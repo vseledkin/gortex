@@ -1,7 +1,5 @@
 package gortex
 
-package gortex
-
 // Gated recurrent unit
 
 type LSTM struct {
@@ -68,15 +66,15 @@ func (rnn *LSTM) Model(namespace string) map[string]*Matrix {
 	}
 }
 
-func (rnn *LSTM) Step(g *Graph, x, h_prev , c_prev *Matrix) (h, c, y *Matrix) {
+func (rnn *LSTM) Step(g *Graph, x, h_prev, c_prev *Matrix) (h, c, y *Matrix) {
 	// make GRU computation graph at one time-step
 	f := g.Sigmoid(g.Add(g.Add(g.Mul(rnn.Wf, x), g.Mul(rnn.Uf, h_prev)), rnn.Bf))
 	i := g.Sigmoid(g.Add(g.Add(g.Mul(rnn.Wi, x), g.Mul(rnn.Ui, h_prev)), rnn.Bi))
 	o := g.Sigmoid(g.Add(g.Add(g.Mul(rnn.Wo, x), g.Mul(rnn.Uo, h_prev)), rnn.Bo))
-	c = 	g.Tanh(g.Add(g.Add(g.Mul(rnn.Wc, x), g.Mul(rnn.Uc, h_prev)), rnn.Bc))
-	c = g.Add(g.EMul(f,c_prev),g.EMul(i,c))
-	h = g.EMul(o,g.Tanh(c))
+	c = g.Tanh(g.Add(g.Add(g.Mul(rnn.Wc, x), g.Mul(rnn.Uc, h_prev)), rnn.Bc))
+	c = g.Add(g.EMul(f, c_prev), g.EMul(i, c))
+	h = g.EMul(o, g.Tanh(c))
 
-	y = g.Mul(rnn.Who, h))
+	y = g.Mul(rnn.Who, h)
 	return
 }

@@ -2,8 +2,6 @@ package gortex
 
 import "math"
 import (
-	"clustext/asm"
-
 	"github.com/vseledkin/gortex/assembler"
 )
 
@@ -13,7 +11,7 @@ func Zeros(n int) []float32 {
 
 func ScaleGradient(model map[string]*Matrix, v float32) {
 	for _, m := range model {
-		asm.Sscale(v, m.DW)
+		assembler.Sscale(v, m.DW)
 	}
 }
 

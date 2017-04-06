@@ -220,7 +220,7 @@ func (g *Graph) MSE(m1, t *Matrix) float32 {
 	l1 := len(m1.W)
 	l2 := len(t.W)
 	if l1 != l2 {
-		panic(fmt.Errorf("matadd number of elements must be equal numel(m1)=%d must be equal numel(m2)=%d", l1, l2))
+		panic(fmt.Errorf("mse number of elements must be equal numel(m1)=%d must be equal numel(m2)=%d", l1, l2))
 	}
 	var mse float32
 	var tmp float32
