@@ -29,7 +29,7 @@ func Softmax(m *Matrix) *Matrix {
 	for i := 0; i < l; i++ {
 		out.W[i] = float32(math.Exp(float64(m.W[i] - maxval)))
 	}
-	sum := assembler.Ssum(out.W)
+	sum := assembler.L1(out.W)
 	assembler.Sscale(1/sum, out.W)
 
 	// no backward pass here needed
@@ -39,7 +39,7 @@ func Softmax(m *Matrix) *Matrix {
 }
 
 func Moments(m *Matrix) (mean, variance float32) {
-	mean = assembler.Ssum(m.W) / float32(len(m.W))
+	mean = assembler.L1(m.W) / float32(len(m.W))
 
 	var total float32
 	var tmp float32

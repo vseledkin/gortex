@@ -1,6 +1,10 @@
 package gortex
 
-// Gated recurrent unit
+import "github.com/vseledkin/gortex/assembler"
+
+// Long Short Term Memory cell
+var USE_LSTM_FORGATE_GATE_TRICK = true
+var LSTM_FORGET_GATE_BIAS = 2
 
 type LSTM struct {
 	Wf *Matrix
@@ -22,11 +26,17 @@ type LSTM struct {
 	Who *Matrix
 }
 
+func (lstm *LSTM) ForgetGateTrick(v float32) {
+	if lstm.Bf != nil {
+		assembler.Sset(v, lstm.Bf.W)
+	}
+}
+
 func MakeLSTM(x_size, h_size, out_size int) *LSTM {
 	rnn := new(LSTM)
 	rnn.Wf = RandXavierMat(h_size, x_size)
 	rnn.Uf = RandXavierMat(h_size, h_size)
-	rnn.Bf = RandXavierMat(h_size, 1)
+	rnn.Bf = RandXavierMat(h_size, 1) // forget gate bias initialization trick will be applied here
 
 	rnn.Wi = RandXavierMat(h_size, x_size)
 	rnn.Ui = RandXavierMat(h_size, h_size)
