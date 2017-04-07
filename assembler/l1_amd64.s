@@ -1,5 +1,5 @@
-// func L1(X []float32) float32
-TEXT ·L1(SB), 7, $0
+// func l1asm(X []float32) float32
+TEXT ·l1asm(SB), 7, $0
   MOVQ	X_data+0(FP), SI
   MOVQ	X_len+8(FP), BP
 

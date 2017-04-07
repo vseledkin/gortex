@@ -1,7 +1,7 @@
 package assembler
 
 import (
-	"math"
+
 	"math/rand"
 	"testing"
 )
@@ -26,20 +26,7 @@ func TestSscale(t *testing.T) {
 	}
 }
 
-func TestL1(t *testing.T) {
-	for j := 0; j < 100; j++ {
-		vector := make([]float32, j)
-		for i := range vector {
-			vector[i] = float32(rand.NormFloat64())
-		}
-		sumfast := L1(vector)
-		sum := l1(vector)
-		// numeric issues
-		if float32(math.Abs(float64(sumfast-sum))) > 1e-5 {
-			t.Fatalf("sums do not match want %0.6f got %0.6f in vector of length %d\n", sum, sumfast, len(vector))
-		}
-	}
-}
+
 
 func TestL2(t *testing.T) {
 	for j := 0; j < 100; j++ {

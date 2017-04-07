@@ -31,31 +31,6 @@ func BenchmarkOptimizedSscale(b *testing.B) { //benchmark function starts with "
 	}
 }
 
-func BenchmarkL1(b *testing.B) { //benchmark function starts with "Benchmark" and takes a pointer to type testing.B
-	b.StopTimer()
-
-	x := make([]float32, 1024)
-	for i := range x {
-		x[i] = float32(rand.NormFloat64())
-	}
-	b.StartTimer() //restart timer
-	for i := 0; i < b.N; i++ {
-		l1(x)
-	}
-}
-
-func BenchmarkOptimizedL1(b *testing.B) { //benchmark function starts with "Benchmark" and takes a pointer to type testing.B
-	b.StopTimer()
-
-	x := make([]float32, 1024)
-	for i := range x {
-		x[i] = float32(rand.NormFloat64())
-	}
-	b.StartTimer() //restart timer
-	for i := 0; i < b.N; i++ {
-		L1(x)
-	}
-}
 
 func BenchmarkSset(b *testing.B) { //benchmark function starts with "Benchmark" and takes a pointer to type testing.B
 	b.StopTimer()

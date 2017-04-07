@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"testing"
 	"time"
+	"github.com/vseledkin/gortex/assembler"
 )
 
 func TestMatrixMul(t *testing.T) {
@@ -304,4 +305,25 @@ func TestDeltaRNN(t *testing.T) {
 		}
 	})
 
+}
+
+func BenchmarkSoftmax(b *testing.B) {
+	b.StopTimer()
+	assembler.Init(false)
+	x := RandMat(100,1)
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		Softmax(x)
+	}
+
+}
+
+func BenchmarkOptimizedSoftmax(b *testing.B) {
+	b.StopTimer()
+	assembler.Init(true)
+	x := RandMat(100,1)
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		Softmax(x)
+	}
 }
