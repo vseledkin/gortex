@@ -1,5 +1,5 @@
-//func Sscale(alpha float32, X []float32)
-TEXT ·Sscale(SB), 7, $0
+//func sscale_asm(alpha float32, X []float32)
+TEXT ·sscale_asm(SB), 7, $0
 	MOVSS	alpha+0(FP), X0
 	MOVQ	X_data+8(FP), SI
 	MOVQ	X_len+16(FP), BP

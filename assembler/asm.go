@@ -1,7 +1,7 @@
 package assembler
 
 var L1 func(x []float32) float32
-var Sscale func(x []float32) float32
+var Sscale func(v float32, x []float32)
 
 func Init(optimize bool) {
 	if optimize {
@@ -13,6 +13,6 @@ func Init(optimize bool) {
 	}
 }
 
-func init(){
+func init() {
 	Init(false)
 }

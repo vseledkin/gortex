@@ -2,11 +2,11 @@ package gortex
 
 import (
 	"fmt"
+	"github.com/vseledkin/gortex/assembler"
 	"math"
 	"math/rand"
 	"testing"
 	"time"
-	"github.com/vseledkin/gortex/assembler"
 )
 
 func TestMatrixMul(t *testing.T) {
@@ -209,8 +209,8 @@ func TestDeltaRNN(t *testing.T) {
 
 	//s := NewSGDSolver() // the Solver uses SGD
 	s := NewSolver() // the Solver uses RMSPROP
-	rnn := MakeRNN(embedding_size, hidden_size, dic.Len())
-	//rnn := MakeGRU(embedding_size, hidden_size, dic.Len())
+	//rnn := MakeRNN(embedding_size, hidden_size, dic.Len())
+	rnn := MakeGRU(embedding_size, hidden_size, dic.Len())
 	//t.Logf("%s\n", rnn)
 	LookupTable := RandMat(embedding_size, dic.Len()) // Lookup Table matrix
 
@@ -310,7 +310,7 @@ func TestDeltaRNN(t *testing.T) {
 func BenchmarkSoftmax(b *testing.B) {
 	b.StopTimer()
 	assembler.Init(false)
-	x := RandMat(100,1)
+	x := RandMat(100, 1)
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
 		Softmax(x)
@@ -321,7 +321,7 @@ func BenchmarkSoftmax(b *testing.B) {
 func BenchmarkOptimizedSoftmax(b *testing.B) {
 	b.StopTimer()
 	assembler.Init(true)
-	x := RandMat(100,1)
+	x := RandMat(100, 1)
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
 		Softmax(x)
