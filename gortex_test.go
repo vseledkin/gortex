@@ -11,6 +11,29 @@ import (
 	"time"
 )
 
+func TestMultinomial(t *testing.T) {
+	n := 3
+	p := RandMat(n, 1)
+	p = Softmax(p)
+
+	ps := p.ZerosAs()
+	t.Logf("Probabilities %#v", p.W)
+	for i := 0; i < 10000; i++ {
+		sampled := Multinomial(p)
+		ps.W[sampled]++
+	}
+	sum := assembler.L1(ps.W)
+	assembler.Sscale(1/sum, ps.W)
+	t.Logf("Sampled Probabilities %#v", ps.W)
+	// compare given and sampled probabilities
+	for i := range p.W {
+		diff := Abs(p.W[i] - ps.W[i])
+		if diff > 0.01 {
+			t.Fatalf("Given probability %f sampled %f diff = %f > 0.005", p.W[i], ps.W[i], diff)
+		}
+	}
+}
+
 func TestMatrixMul(t *testing.T) {
 	W := MatFromSlice([][]float32{{1, 2, 3}, {4, 5, 6}}) // Matrix
 	x := MatFromSlice([][]float32{{1}, {2}, {3}})        // input vector

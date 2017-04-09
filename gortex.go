@@ -6,8 +6,21 @@ import (
 	"fmt"
 	"github.com/vseledkin/gortex/assembler"
 
+	"math/rand"
 	"os"
+	"time"
 )
+
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
+
+func Abs(f float32) float32 {
+	if f < 0 {
+		return -f
+	}
+	return f
+}
 
 func Zeros(n int) []float32 {
 	return make([]float32, n)
@@ -65,6 +78,25 @@ func MaxIV(m *Matrix) (int, float32) {
 		}
 	}
 	return maxIndex, max
+}
+
+func Multinomial(probabilities *Matrix) int {
+	if probabilities.Columns != 1 {
+		panic(fmt.Errorf("Input must be vector"))
+	}
+
+	offset := float32(0)
+	sample := rand.Float32()
+	for i, p := range probabilities.W {
+		offset += p
+		//fmt.Printf("SAmple %f offset: %f\n", sample, offset)
+		//sample uniform from [0,1]
+		if sample <= offset {
+			//fmt.Printf("Got %d\n", i)
+			return i
+		}
+	}
+	panic(fmt.Errorf("Probabilities values are not correct"))
 }
 
 func SaveModel(name string, m map[string]*Matrix) {
