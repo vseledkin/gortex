@@ -8,12 +8,12 @@ type RNN struct {
 }
 
 func MakeRNN(x_size, h_size, out_size int) *RNN {
-	rnn := new(RNN)
-	rnn.Wxh = RandXavierMat(h_size, x_size)
-	rnn.Whh = RandXavierMat(h_size, h_size)
-	rnn.Who = RandXavierMat(out_size, h_size)
-	rnn.Bias = RandXavierMat(h_size, 1)
-	return rnn
+	net := new(RNN)
+	net.Wxh = RandXavierMat(h_size, x_size)
+	net.Whh = RandXavierMat(h_size, h_size)
+	net.Who = RandXavierMat(out_size, h_size)
+	net.Bias = RandXavierMat(h_size, 1)
+	return net
 }
 
 func (rnn *RNN) Model(namespace string) map[string]*Matrix {

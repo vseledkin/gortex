@@ -1,10 +1,10 @@
 package gortex
 
-import "github.com/vseledkin/gortex/assembler"
+import (
+	"github.com/vseledkin/gortex/assembler"
+)
 
 // Long Short Term Memory cell
-var USE_LSTM_FORGATE_GATE_TRICK = true
-var LSTM_FORGET_GATE_BIAS = 2
 
 type LSTM struct {
 	Wf *Matrix
@@ -77,7 +77,7 @@ func (rnn *LSTM) Model(namespace string) map[string]*Matrix {
 }
 
 func (rnn *LSTM) Step(g *Graph, x, h_prev, c_prev *Matrix) (h, c, y *Matrix) {
-	// make GRU computation graph at one time-step
+	// make LSTM computation graph at one time-step
 	f := g.Sigmoid(g.Add(g.Add(g.Mul(rnn.Wf, x), g.Mul(rnn.Uf, h_prev)), rnn.Bf))
 	i := g.Sigmoid(g.Add(g.Add(g.Mul(rnn.Wi, x), g.Mul(rnn.Ui, h_prev)), rnn.Bi))
 	o := g.Sigmoid(g.Add(g.Add(g.Mul(rnn.Wo, x), g.Mul(rnn.Uo, h_prev)), rnn.Bo))

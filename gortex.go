@@ -2,7 +2,11 @@ package gortex
 
 import "math"
 import (
+	"encoding/json"
+	"fmt"
 	"github.com/vseledkin/gortex/assembler"
+
+	"os"
 )
 
 func Zeros(n int) []float32 {
@@ -61,4 +65,36 @@ func MaxIV(m *Matrix) (int, float32) {
 		}
 	}
 	return maxIndex, max
+}
+
+func SaveModel(name string, m map[string]*Matrix) {
+	fmt.Print("\n---------------------------------------------------\n")
+	fmt.Printf("Saving model to: %s\n", name)
+	fmt.Print("---------------------------------------------------\n")
+	// save MODEL_NAME
+	f, err := os.Create(name)
+	if err != nil {
+		panic(err)
+	}
+	encoder := json.NewEncoder(f)
+	encoder.Encode(m)
+	f.Close()
+}
+
+func LoadModel(name string) map[string]*Matrix {
+
+	if len(name) == 0 {
+		panic(fmt.Errorf("No model file provided! [%s]", name))
+	}
+	fmt.Printf("Loading learned model %s\n", name)
+	f, e := os.Open(name)
+	if e != nil {
+		panic(e)
+	}
+	var m map[string]*Matrix
+	decoder := json.NewDecoder(f)
+	decoder.Decode(&m)
+
+	f.Close()
+	return m
 }

@@ -5,6 +5,7 @@ import (
 	"github.com/vseledkin/gortex/assembler"
 	"math"
 	"math/rand"
+	"sync"
 	"testing"
 	"time"
 )
@@ -194,7 +195,7 @@ func TestOptimizationWithCrossentropySGD(t *testing.T) {
 
 }
 
-func TestDeltaRNN(t *testing.T) {
+func TestGruRnn(t *testing.T) {
 	// start from random
 	rand.Seed(time.Now().UnixNano())
 	trainFile := "ptb.train.txt"
@@ -210,21 +211,21 @@ func TestDeltaRNN(t *testing.T) {
 	//s := NewSGDSolver() // the Solver uses SGD
 	s := NewSolver() // the Solver uses RMSPROP
 	//rnn := MakeRNN(embedding_size, hidden_size, dic.Len())
-	rnn := MakeGRU(embedding_size, hidden_size, dic.Len())
+	net := MakeGRU(embedding_size, hidden_size, dic.Len())
 	//t.Logf("%s\n", rnn)
 	LookupTable := RandMat(embedding_size, dic.Len()) // Lookup Table matrix
 
 	h0 := Mat(hidden_size, 1) // vector of zeros
 	// define model parameters
-	model := rnn.Model("RNN")
+	model := net.Model("RNN")
 	model["LookupTable"] = LookupTable
 	count := 0
 	ma_ppl := NewMovingAverage(50)
 	ma_nll := NewMovingAverage(50)
 	ma_bpc := NewMovingAverage(50)
 	batch_size := 16
-	learning_rate := float32(0.002)
-	anneal_rate := float32(0.999)
+	learning_rate := float32(0.001)
+	anneal_rate := float32(0.9999)
 	SampleVisitor(trainFile, CharSplitter{}, dic, func(x []int) {
 		if len(x) > 10 {
 			// map term indexes in dictionary to embedding vectors
@@ -236,7 +237,7 @@ func TestDeltaRNN(t *testing.T) {
 			ht := h0
 			for i, term_id := range x[:len(x)-1] {
 				var yt *Matrix
-				ht, yt = rnn.Step(G, G.Lookup(LookupTable, term_id), ht)
+				ht, yt = net.Step(G, G.Lookup(LookupTable, term_id), ht)
 
 				// out task at each time step is to predict next symbol from rnn output
 				cost, probability := G.Crossentropy(yt, x[i+1])
@@ -271,9 +272,9 @@ func TestDeltaRNN(t *testing.T) {
 			ma_ppl.Add(x_perplexity)
 			ma_nll.Add(x_cost)
 			// compute gradients
-			//for k, m := range model {
-			//	fmt.Printf("%s %#v %f %f\n", k, m.DW[:2], m.Norm(), m.NormGradient())
-			//}
+			for k, m := range model {
+				fmt.Printf("%s %#v %f %f\n", k, m.DW[:2], m.Norm(), m.NormGradient())
+			}
 			// update model weights
 			count++
 			if count > 0 && count%batch_size == 0 {
@@ -296,7 +297,7 @@ func TestDeltaRNN(t *testing.T) {
 			var logits *Matrix
 			for i := 0; i < 100; i++ {
 				xt := G.Lookup(LookupTable, term_id)
-				ht, logits = rnn.Step(&G, xt, ht)
+				ht, logits = net.Step(&G, xt, ht)
 				term_id, _ = MaxIV(Softmax(logits))
 				fmt.Printf("%s", dic.TokenByID(term_id))
 				//t.Logf("step: %d crossentropy: %f perplexity: %f probability: %f\n", time, crossentropy, perplexity, probability)
@@ -304,7 +305,155 @@ func TestDeltaRNN(t *testing.T) {
 			fmt.Printf("\n")
 		}
 	})
+}
 
+func TestHogwildStyleLSTMRnn(t *testing.T) {
+	// start from random
+	rand.Seed(time.Now().UnixNano())
+	trainFile := "ptb.train.txt"
+	//trainFile := "64.unique.txt"
+	dic, e := DictionaryFromFile(trainFile, CharSplitter{})
+	if e != nil {
+		t.Fatal(e)
+	}
+	embedding_size := 128
+	hidden_size := 256
+	fmt.Printf("Dictionary has %d tokens\n", dic.Len())
+	fmt.Printf("%s\n", dic)
+
+	//s := NewSGDSolver() // the Solver uses SGD
+	s := NewSolver() // the Solver uses RMSPROP
+	//rnn := MakeRNN(embedding_size, hidden_size, dic.Len())
+	//rnn := MakeGRU(embedding_size, hidden_size, dic.Len())
+	net := MakeLSTM(embedding_size, hidden_size, dic.Len())
+	net.ForgetGateTrick(2.0)
+	//t.Logf("%s\n", rnn)
+	LookupTable := RandMat(embedding_size, dic.Len()) // Lookup Table matrix
+
+	h0 := Mat(hidden_size, 1) // vector of zeros
+	// define model parameters
+	model := net.Model("RNN")
+	model["LookupTable"] = LookupTable
+	count := 0
+	ma_ppl := NewMovingAverage(1000)
+	ma_nll := NewMovingAverage(1000)
+	ma_bpc := NewMovingAverage(1000)
+	ma_speed := NewMovingAverage(1000)
+	ma_allspeed := NewMovingAverage(1000)
+	ma_duration := NewMovingAverage(1000)
+	batch_size := 32
+	learning_rate := float32(0.001)
+	anneal_rate := float32(0.9999)
+	threads := batch_size
+	type result struct {
+		cost       float32
+		perplexity float32
+		bpc        float32
+		time       time.Duration
+		speed      float32
+		len        int
+	}
+	license := make(chan interface{}, threads)
+	results := make(chan *result, batch_size*threads)
+	for i := 0; i < threads; i++ {
+		license <- 1
+	}
+	go func() {
+		var update_count, rnn_steps, samples_count int
+		start := time.Now()
+		for r := range results {
+			update_count++
+			samples_count++
+			rnn_steps += r.len
+			ma_bpc.Add(r.bpc)
+			ma_ppl.Add(r.perplexity)
+			ma_nll.Add(r.cost)
+			ma_speed.Add(r.speed)
+			ma_duration.Add(float32(r.time.Seconds()))
+			if update_count == batch_size {
+				for i := 0; i < threads; i++ { // freeze train
+					<-license
+				}
+				ma_allspeed.Add(float32(rnn_steps) / float32(time.Now().Sub(start).Seconds()))
+				update_count = 0
+				ScaleGradient(model, 1/float32(rnn_steps))
+				rnn_steps = 0
+				s.Step(model, learning_rate, 0.000001, 5.0)
+				fmt.Printf("step: %d nll: %f ppl: %f bpc: %f lr: %f speed:%f speed: %f time:%f s.\n", samples_count, ma_nll.Avg(), ma_ppl.Avg(), ma_bpc.Avg(), learning_rate, ma_speed.Avg(), ma_allspeed.Avg(), ma_duration.Avg())
+				learning_rate = learning_rate * anneal_rate
+				for i := 0; i < threads; i++ { // release train
+					license <- 1
+				}
+
+				start = time.Now()
+
+			}
+			if samples_count%10000 == 0 {
+				SaveModel("model", model)
+			}
+		}
+	}()
+	var w sync.WaitGroup
+	w.Add(1)
+	go func() {
+		SampleVisitor(trainFile, CharSplitter{}, dic, func(x []int) {
+			if len(x) > 10 {
+				<-license
+				go func(x []int) {
+					start := time.Now()
+					// map term indexes in dictionary to embedding vectors
+					var x_cost, x_probability float32
+					// make forward through rnn through time
+					G := &Graph{NeedsBackprop: true}
+					ht := h0
+					ct := h0
+					for i, term_id := range x[:len(x)-1] {
+						var yt *Matrix
+						ht, ct, yt = net.Step(G, G.Lookup(LookupTable, term_id), ht, ct)
+						// out task at each time step is to predict next symbol from rnn output
+						cost, probability := G.Crossentropy(yt, x[i+1])
+						x_cost += cost
+						x_probability *= probability
+					}
+					G.Backward()
+
+					x_cost /= float32(len(x) - 1)
+					x_perplexity := float32(math.Exp(float64(x_cost)))
+					duration := time.Now().Sub(start)
+					results <- &result{
+						cost:       x_cost,
+						perplexity: x_perplexity,
+						bpc:        x_cost / math.Ln2,
+						time:       duration,
+						speed:      float32(len(x)-1) / float32(duration.Seconds()),
+						len:        len(x) - 1,
+					}
+					license <- 1
+				}(x)
+
+				count++
+				if count%100 == 0 { // print some model generated text
+					fmt.Printf("MODEL GENERATED TEXT: ")
+					G := Graph{NeedsBackprop: false}
+					ht := RandMat(hidden_size, 1)
+					ct := RandMat(hidden_size, 1)
+					term_id := int(rand.Int31n(int32(dic.Len())))
+					var logits *Matrix
+					for i := 0; i < 100; i++ {
+						xt := G.Lookup(LookupTable, term_id)
+						ht, ct, logits = net.Step(&G, xt, ht, ct)
+						term_id, _ = MaxIV(Softmax(logits))
+						fmt.Printf("%s", dic.TokenByID(term_id))
+					}
+					fmt.Printf("\n")
+				}
+			}
+		})
+	}()
+	w.Wait()
+	for i := 0; i < threads; i++ {
+		<-license
+	}
 }
 
 func BenchmarkSoftmax(b *testing.B) {
