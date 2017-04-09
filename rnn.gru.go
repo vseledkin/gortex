@@ -1,5 +1,7 @@
 package gortex
 
+import "fmt"
+
 // Gated recurrent unit
 
 type GRU struct {
@@ -36,7 +38,7 @@ func MakeGRU(x_size, h_size, out_size int) *GRU {
 	return rnn
 }
 
-func (rnn *GRU) Model(namespace string) map[string]*Matrix {
+func (rnn *GRU) GetParameters(namespace string) map[string]*Matrix {
 	return map[string]*Matrix{
 		namespace + "_Wz": rnn.Wz,
 		namespace + "_Uz": rnn.Uz,
@@ -52,6 +54,19 @@ func (rnn *GRU) Model(namespace string) map[string]*Matrix {
 
 		namespace + "_Who": rnn.Who,
 	}
+}
+
+func (rnn *GRU) SetParameters(namespace string, parameters map[string]*Matrix) error {
+	for k, v := range rnn.GetParameters(namespace) {
+		fmt.Printf("Look for %s parameters\n", k)
+		if m, ok := parameters[k]; ok {
+			fmt.Printf("Got %s parameters\n", k)
+			v.W = m.W
+		} else {
+			return fmt.Errorf("Model geometry is not compatible, parameter %s is unknown", k)
+		}
+	}
+	return nil
 }
 
 func (rnn *GRU) Step(g *Graph, x, h_prev *Matrix) (h, y *Matrix) {

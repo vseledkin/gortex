@@ -5,6 +5,7 @@ import (
 	"github.com/vseledkin/gortex/assembler"
 	"math"
 	"math/rand"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -217,7 +218,7 @@ func TestGruRnn(t *testing.T) {
 
 	h0 := Mat(hidden_size, 1) // vector of zeros
 	// define model parameters
-	model := net.Model("RNN")
+	model := net.GetParameters("RNN")
 	model["LookupTable"] = LookupTable
 	count := 0
 	ma_ppl := NewMovingAverage(50)
@@ -244,28 +245,9 @@ func TestGruRnn(t *testing.T) {
 
 				x_cost += cost
 				x_probability *= probability
-				//t.Logf("step: %d crossentropy: %f perplexity: %f probability: %f\n", time, crossentropy, perplexity, probability)
 			}
 			G.Backward()
-			//for i, hh := range h {
-			//	if hh.NormGradient() == 0 {
-			//		fmt.Printf("BAD h weights %f\n", hh.Norm())
-			//		panic(fmt.Errorf("BAD h gradient %f\n", hh.NormGradient()))
-			//	}
-			//	fmt.Printf("GOOD h %d gradient %f\n", i, hh.NormGradient())
-			//}
-			// backpropagation trought time
-			//for i := len(x) - 2; i > 0; i-- {
 
-			//	graphs[i].Backward()
-			//	fmt.Printf("%s %#v %f %f\n", "Y", y[i].DW[:2], y[i].Norm(), y[i].NormGradient())
-			//	fmt.Printf("%s %#v %f %f\n", "H", h[i].DW[:2], h[i].Norm(), h[i].NormGradient())
-			//	fmt.Printf("%s %#v %f %f\n", "H", h[i-1].DW[:2], h[i-1].Norm(), h[i-1].NormGradient())
-			//if i > 2 {
-			//	h[i-2].DW = h[i-1].DW
-			//}
-			//}
-			//fmt.Printf("\n")
 			x_cost /= float32(len(x) - 1)
 			ma_bpc.Add(x_cost / math.Ln2)
 			x_perplexity := float32(math.Exp(float64(x_cost)))
@@ -286,8 +268,6 @@ func TestGruRnn(t *testing.T) {
 				fmt.Printf("step: %d nll: %f perplexity: %f bpc: %f lr: %f\n", count, ma_nll.Avg(), ma_ppl.Avg(), ma_bpc.Avg(), learning_rate)
 				learning_rate = learning_rate * anneal_rate
 			}
-			//s.Step(model, 0.01)
-
 		}
 		if count%100 == 0 { // print some model generated text
 			fmt.Printf("MODEL GENERATED TEXT: ")
@@ -307,17 +287,26 @@ func TestGruRnn(t *testing.T) {
 	})
 }
 
-func TestHogwildStyleLSTMRnn(t *testing.T) {
+func TestMulticoreLSTMTraining(t *testing.T) {
 	// start from random
 	rand.Seed(time.Now().UnixNano())
 	trainFile := "ptb.train.txt"
 	//trainFile := "64.unique.txt"
-	dic, e := DictionaryFromFile(trainFile, CharSplitter{})
+	modelName := "MultiplicativeLSTM"
+	dic, e := LoadDictionary(modelName + ".dic")
 	if e != nil {
-		t.Fatal(e)
+		dic, e = DictionaryFromFile(trainFile, CharSplitter{})
+		if e != nil {
+			t.Fatal(e)
+		}
+		e = SaveDictionary(modelName+".dic", dic)
+		if e != nil {
+			t.Fatal(e)
+		}
 	}
+
 	embedding_size := 128
-	hidden_size := 256
+	hidden_size := 128
 	fmt.Printf("Dictionary has %d tokens\n", dic.Len())
 	fmt.Printf("%s\n", dic)
 
@@ -325,15 +314,25 @@ func TestHogwildStyleLSTMRnn(t *testing.T) {
 	s := NewSolver() // the Solver uses RMSPROP
 	//rnn := MakeRNN(embedding_size, hidden_size, dic.Len())
 	//rnn := MakeGRU(embedding_size, hidden_size, dic.Len())
-	net := MakeLSTM(embedding_size, hidden_size, dic.Len())
+	//net := MakeLSTM(embedding_size, hidden_size, dic.Len())
+	net := MakeMultiplicativeLSTM(embedding_size, hidden_size, dic.Len())
 	net.ForgetGateTrick(2.0)
 	//t.Logf("%s\n", rnn)
 	LookupTable := RandMat(embedding_size, dic.Len()) // Lookup Table matrix
 
 	h0 := Mat(hidden_size, 1) // vector of zeros
 	// define model parameters
-	model := net.Model("RNN")
+	model := net.GetParameters(modelName)
 	model["LookupTable"] = LookupTable
+
+	if _, err := os.Stat(modelName); err == nil {
+		model = LoadModel(modelName)
+		e = net.SetParameters(modelName, model)
+		if e != nil {
+			t.Fatal(e)
+		}
+		LookupTable = model["LookupTable"]
+	}
 	count := 0
 	ma_ppl := NewMovingAverage(1000)
 	ma_nll := NewMovingAverage(1000)
@@ -378,7 +377,7 @@ func TestHogwildStyleLSTMRnn(t *testing.T) {
 				update_count = 0
 				ScaleGradient(model, 1/float32(rnn_steps))
 				rnn_steps = 0
-				s.Step(model, learning_rate, 0.000001, 5.0)
+				s.Step(model, learning_rate, 0.00001, 5.0)
 				fmt.Printf("step: %d nll: %f ppl: %f bpc: %f lr: %f speed:%f speed: %f time:%f s.\n", samples_count, ma_nll.Avg(), ma_ppl.Avg(), ma_bpc.Avg(), learning_rate, ma_speed.Avg(), ma_allspeed.Avg(), ma_duration.Avg())
 				learning_rate = learning_rate * anneal_rate
 				for i := 0; i < threads; i++ { // release train
@@ -388,8 +387,8 @@ func TestHogwildStyleLSTMRnn(t *testing.T) {
 				start = time.Now()
 
 			}
-			if samples_count%10000 == 0 {
-				SaveModel("model", model)
+			if samples_count%1000 == 0 {
+				SaveModel(modelName, model)
 			}
 		}
 	}()

@@ -1,12 +1,16 @@
 package gortex
 
 import (
+	"fmt"
 	"github.com/vseledkin/gortex/assembler"
 )
 
 // Long Short Term Memory cell
 
-type LSTM struct {
+type MultiplicativeLSTM struct {
+	Wmx *Matrix
+	Umh *Matrix
+
 	Wf *Matrix
 	Uf *Matrix
 	Bf *Matrix
@@ -26,14 +30,17 @@ type LSTM struct {
 	Who *Matrix
 }
 
-func (lstm *LSTM) ForgetGateTrick(v float32) {
+func (lstm *MultiplicativeLSTM) ForgetGateTrick(v float32) {
 	if lstm.Bf != nil {
 		assembler.Sset(v, lstm.Bf.W)
 	}
 }
 
-func MakeLSTM(x_size, h_size, out_size int) *LSTM {
-	rnn := new(LSTM)
+func MakeMultiplicativeLSTM(x_size, h_size, out_size int) *MultiplicativeLSTM {
+	rnn := new(MultiplicativeLSTM)
+	rnn.Wmx = RandXavierMat(h_size, x_size)
+	rnn.Umh = RandXavierMat(h_size, h_size)
+
 	rnn.Wf = RandXavierMat(h_size, x_size)
 	rnn.Uf = RandXavierMat(h_size, h_size)
 	rnn.Bf = RandXavierMat(h_size, 1) // forget gate bias initialization trick will be applied here
@@ -54,8 +61,11 @@ func MakeLSTM(x_size, h_size, out_size int) *LSTM {
 	return rnn
 }
 
-func (rnn *LSTM) Model(namespace string) map[string]*Matrix {
+func (rnn *MultiplicativeLSTM) GetParameters(namespace string) map[string]*Matrix {
 	return map[string]*Matrix{
+		namespace + "_Wmx": rnn.Wmx,
+		namespace + "_Umh": rnn.Umh,
+
 		namespace + "_Wf": rnn.Wf,
 		namespace + "_Uf": rnn.Uf,
 		namespace + "_Bf": rnn.Bf,
@@ -76,12 +86,27 @@ func (rnn *LSTM) Model(namespace string) map[string]*Matrix {
 	}
 }
 
-func (rnn *LSTM) Step(g *Graph, x, h_prev, c_prev *Matrix) (h, c, y *Matrix) {
-	// make LSTM computation graph at one time-step
-	f := g.Sigmoid(g.Add(g.Add(g.Mul(rnn.Wf, x), g.Mul(rnn.Uf, h_prev)), rnn.Bf))
-	i := g.Sigmoid(g.Add(g.Add(g.Mul(rnn.Wi, x), g.Mul(rnn.Ui, h_prev)), rnn.Bi))
-	o := g.Sigmoid(g.Add(g.Add(g.Mul(rnn.Wo, x), g.Mul(rnn.Uo, h_prev)), rnn.Bo))
-	c = g.Tanh(g.Add(g.Add(g.Mul(rnn.Wc, x), g.Mul(rnn.Uc, h_prev)), rnn.Bc))
+func (rnn *MultiplicativeLSTM) SetParameters(namespace string, parameters map[string]*Matrix) error {
+	for k, v := range rnn.GetParameters(namespace) {
+		fmt.Printf("Look for %s parameters\n", k)
+		if m, ok := parameters[k]; ok {
+			fmt.Printf("Got %s parameters\n", k)
+			v.W = m.W
+		} else {
+			return fmt.Errorf("Model geometry is not compatible, parameter %s is unknown", k)
+		}
+	}
+	return nil
+}
+
+func (rnn *MultiplicativeLSTM) Step(g *Graph, x, h_prev, c_prev *Matrix) (h, c, y *Matrix) {
+	// make MultiplicativeLSTM computation graph at one time-step
+
+	m := g.EMul(g.Mul(rnn.Wmx, x), g.Mul(rnn.Umh, h_prev))
+	f := g.Sigmoid(g.Add(g.Add(g.Mul(rnn.Wf, x), g.Mul(rnn.Uf, m)), rnn.Bf))
+	i := g.Sigmoid(g.Add(g.Add(g.Mul(rnn.Wi, x), g.Mul(rnn.Ui, m)), rnn.Bi))
+	o := g.Sigmoid(g.Add(g.Add(g.Mul(rnn.Wo, x), g.Mul(rnn.Uo, m)), rnn.Bo))
+	c = g.Tanh(g.Add(g.Add(g.Mul(rnn.Wc, x), g.Mul(rnn.Uc, m)), rnn.Bc))
 	c = g.Add(g.EMul(f, c_prev), g.EMul(i, c))
 	h = g.EMul(o, g.Tanh(c))
 

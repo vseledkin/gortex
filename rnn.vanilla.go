@@ -1,5 +1,7 @@
 package gortex
 
+import "fmt"
+
 type RNN struct {
 	Wxh  *Matrix
 	Whh  *Matrix
@@ -16,10 +18,23 @@ func MakeRNN(x_size, h_size, out_size int) *RNN {
 	return net
 }
 
-func (rnn *RNN) Model(namespace string) map[string]*Matrix {
+func (rnn *RNN) GetParameters(namespace string) map[string]*Matrix {
 	return map[string]*Matrix{
 		namespace + "_Wxh": rnn.Wxh,
 		namespace + "_Whh": rnn.Whh, namespace + "_Who": rnn.Who, namespace + "_Bias": rnn.Bias}
+}
+
+func (rnn *RNN) SetParameters(namespace string, parameters map[string]*Matrix) error {
+	for k, v := range rnn.GetParameters(namespace) {
+		fmt.Printf("Look for %s parameters\n", k)
+		if m, ok := parameters[k]; ok {
+			fmt.Printf("Got %s parameters\n", k)
+			v.W = m.W
+		} else {
+			return fmt.Errorf("Model geometry is not compatible, parameter %s is unknown", k)
+		}
+	}
+	return nil
 }
 
 func (rnn *RNN) Step(g *Graph, x, h_prev *Matrix) (h, y *Matrix) {

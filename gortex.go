@@ -82,7 +82,6 @@ func SaveModel(name string, m map[string]*Matrix) {
 }
 
 func LoadModel(name string) map[string]*Matrix {
-
 	if len(name) == 0 {
 		panic(fmt.Errorf("No model file provided! [%s]", name))
 	}
