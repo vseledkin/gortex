@@ -4,6 +4,7 @@ import "math"
 import (
 	"encoding/json"
 	"fmt"
+
 	"github.com/vseledkin/gortex/assembler"
 
 	"math/rand"
@@ -89,14 +90,12 @@ func Multinomial(probabilities *Matrix) int {
 	sample := rand.Float32()
 	for i, p := range probabilities.W {
 		offset += p
-		//fmt.Printf("SAmple %f offset: %f\n", sample, offset)
 		//sample uniform from [0,1]
 		if sample <= offset {
-			//fmt.Printf("Got %d\n", i)
 			return i
 		}
 	}
-	panic(fmt.Errorf("Probabilities values are not correct"))
+	return len(probabilities.W) - 1
 }
 
 func SaveModel(name string, m map[string]*Matrix) {

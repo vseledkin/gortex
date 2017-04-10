@@ -2,13 +2,14 @@ package gortex
 
 import (
 	"fmt"
-	"github.com/vseledkin/gortex/assembler"
 	"math"
 	"math/rand"
 	"os"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/vseledkin/gortex/assembler"
 )
 
 func TestMultinomial(t *testing.T) {
@@ -315,7 +316,7 @@ func TestMulticoreLSTMTraining(t *testing.T) {
 	rand.Seed(time.Now().UnixNano())
 	trainFile := "ptb.train.txt"
 	//trainFile := "64.unique.txt"
-	modelName := "MultiplicativeLSTM"
+	modelName := "DeltaRNN"
 	dic, e := LoadDictionary(modelName + ".dic")
 	if e != nil {
 		dic, e = DictionaryFromFile(trainFile, CharSplitter{})
@@ -329,7 +330,7 @@ func TestMulticoreLSTMTraining(t *testing.T) {
 	}
 
 	embedding_size := 128
-	hidden_size := 128
+	hidden_size := 256
 	fmt.Printf("Dictionary has %d tokens\n", dic.Len())
 	fmt.Printf("%s\n", dic)
 
@@ -338,8 +339,9 @@ func TestMulticoreLSTMTraining(t *testing.T) {
 	//rnn := MakeRNN(embedding_size, hidden_size, dic.Len())
 	//rnn := MakeGRU(embedding_size, hidden_size, dic.Len())
 	//net := MakeLSTM(embedding_size, hidden_size, dic.Len())
-	net := MakeMultiplicativeLSTM(embedding_size, hidden_size, dic.Len())
-	net.ForgetGateTrick(2.0)
+	//net := MakeMultiplicativeLSTM(embedding_size, hidden_size, dic.Len())
+	net := MakeDeltaRNN(embedding_size, hidden_size, dic.Len())
+	//net.ForgetGateTrick(2.0)
 	//t.Logf("%s\n", rnn)
 	LookupTable := RandMat(embedding_size, dic.Len()) // Lookup Table matrix
 
@@ -428,10 +430,11 @@ func TestMulticoreLSTMTraining(t *testing.T) {
 					// make forward through rnn through time
 					G := &Graph{NeedsBackprop: true}
 					ht := h0
-					ct := h0
+					//ct := h0
 					for i, term_id := range x[:len(x)-1] {
 						var yt *Matrix
-						ht, ct, yt = net.Step(G, G.Lookup(LookupTable, term_id), ht, ct)
+						//ht, ct, yt = net.Step(G, G.Lookup(LookupTable, term_id), ht, ct)
+						ht, yt = net.Step(G, G.Lookup(LookupTable, term_id), ht)
 						// out task at each time step is to predict next symbol from rnn output
 						cost, probability := G.Crossentropy(yt, x[i+1])
 						x_cost += cost
@@ -458,13 +461,15 @@ func TestMulticoreLSTMTraining(t *testing.T) {
 					fmt.Printf("MODEL GENERATED TEXT: ")
 					G := Graph{NeedsBackprop: false}
 					ht := RandMat(hidden_size, 1)
-					ct := RandMat(hidden_size, 1)
+					//ct := RandMat(hidden_size, 1)
 					term_id := int(rand.Int31n(int32(dic.Len())))
 					var logits *Matrix
 					for i := 0; i < 100; i++ {
 						xt := G.Lookup(LookupTable, term_id)
-						ht, ct, logits = net.Step(&G, xt, ht, ct)
-						term_id, _ = MaxIV(Softmax(logits))
+						//ht, ct, logits = net.Step(&G, xt, ht, ct)
+						ht, logits = net.Step(&G, xt, ht)
+						term_id = Multinomial(Softmax(logits))
+						//term_id, _ = MaxIV(Softmax(logits))
 						fmt.Printf("%s", dic.TokenByID(term_id))
 					}
 					fmt.Printf("\n")
