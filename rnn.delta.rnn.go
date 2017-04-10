@@ -65,9 +65,8 @@ func (rnn *DeltaRNN) Step(g *Graph, x, h_prev *Matrix) (h, y *Matrix) {
 	z3 := g.EMul(rnn.C, g.EMul(xx, hh))
 	z := g.Add(g.Add(g.Add(z1, z2), z3), rnn.Bias)
 
-	//h = g.Tanh(g.Add(g.EMul(r, h_prev), g.EMul(g.Sub(r.OnesAs(), r), z)))
-	h = g.Tanh(g.Add(g.EMul(r, z), g.EMul(g.Sub(r.OnesAs(), r), h_prev)))
+	h = g.Add(g.EMul(r, h_prev), g.EMul(g.Sub(r.OnesAs(), r), z))
 
-	y = g.Mul(rnn.Wo, h)
+	y = g.Mul(rnn.Wo, g.Tanh(h))
 	return
 }

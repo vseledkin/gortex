@@ -2,6 +2,7 @@ package gortex
 
 import (
 	"fmt"
+
 	"github.com/vseledkin/gortex/assembler"
 )
 
@@ -91,7 +92,7 @@ func (rnn *MultiplicativeLSTM) SetParameters(namespace string, parameters map[st
 		fmt.Printf("Look for %s parameters\n", k)
 		if m, ok := parameters[k]; ok {
 			fmt.Printf("Got %s parameters\n", k)
-			v.W = m.W
+			copy(v.W, m.W)
 		} else {
 			return fmt.Errorf("Model geometry is not compatible, parameter %s is unknown", k)
 		}

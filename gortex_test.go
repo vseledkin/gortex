@@ -312,11 +312,12 @@ func TestGruRnn(t *testing.T) {
 }
 
 func TestMulticoreLSTMTraining(t *testing.T) {
+	assembler.Init(true)
 	// start from random
 	rand.Seed(time.Now().UnixNano())
-	trainFile := "ptb.train.txt"
+	trainFile := "input.txt"
 	//trainFile := "64.unique.txt"
-	modelName := "DeltaRNN"
+	modelName := "MultLSTM"
 	dic, e := LoadDictionary(modelName + ".dic")
 	if e != nil {
 		dic, e = DictionaryFromFile(trainFile, CharSplitter{})
@@ -339,17 +340,15 @@ func TestMulticoreLSTMTraining(t *testing.T) {
 	//rnn := MakeRNN(embedding_size, hidden_size, dic.Len())
 	//rnn := MakeGRU(embedding_size, hidden_size, dic.Len())
 	//net := MakeLSTM(embedding_size, hidden_size, dic.Len())
-	//net := MakeMultiplicativeLSTM(embedding_size, hidden_size, dic.Len())
-	net := MakeDeltaRNN(embedding_size, hidden_size, dic.Len())
+	net := MakeMultiplicativeLSTM(embedding_size, hidden_size, dic.Len())
+	//net := MakeDeltaRNN(embedding_size, hidden_size, dic.Len())
 	//net.ForgetGateTrick(2.0)
 	//t.Logf("%s\n", rnn)
-	LookupTable := RandMat(embedding_size, dic.Len()) // Lookup Table matrix
 
 	h0 := Mat(hidden_size, 1) // vector of zeros
 	// define model parameters
-	model := net.GetParameters(modelName)
-	model["LookupTable"] = LookupTable
-
+	var model map[string]*Matrix
+	var LookupTable *Matrix
 	if _, err := os.Stat(modelName); err == nil {
 		model = LoadModel(modelName)
 		e = net.SetParameters(modelName, model)
@@ -357,7 +356,12 @@ func TestMulticoreLSTMTraining(t *testing.T) {
 			t.Fatal(e)
 		}
 		LookupTable = model["LookupTable"]
+	} else {
+		model = net.GetParameters(modelName)
+		LookupTable = RandMat(embedding_size, dic.Len()) // Lookup Table matrix
+		model["LookupTable"] = LookupTable
 	}
+
 	count := 0
 	ma_ppl := NewMovingAverage(1000)
 	ma_nll := NewMovingAverage(1000)
@@ -430,11 +434,11 @@ func TestMulticoreLSTMTraining(t *testing.T) {
 					// make forward through rnn through time
 					G := &Graph{NeedsBackprop: true}
 					ht := h0
-					//ct := h0
+					ct := h0
 					for i, term_id := range x[:len(x)-1] {
 						var yt *Matrix
-						//ht, ct, yt = net.Step(G, G.Lookup(LookupTable, term_id), ht, ct)
-						ht, yt = net.Step(G, G.Lookup(LookupTable, term_id), ht)
+						ht, ct, yt = net.Step(G, G.Lookup(LookupTable, term_id), ht, ct)
+						//ht, yt = net.Step(G, G.Lookup(LookupTable, term_id), ht)
 						// out task at each time step is to predict next symbol from rnn output
 						cost, probability := G.Crossentropy(yt, x[i+1])
 						x_cost += cost
@@ -461,15 +465,18 @@ func TestMulticoreLSTMTraining(t *testing.T) {
 					fmt.Printf("MODEL GENERATED TEXT: ")
 					G := Graph{NeedsBackprop: false}
 					ht := RandMat(hidden_size, 1)
-					//ct := RandMat(hidden_size, 1)
+					ct := RandMat(hidden_size, 1)
 					term_id := int(rand.Int31n(int32(dic.Len())))
 					var logits *Matrix
 					for i := 0; i < 100; i++ {
 						xt := G.Lookup(LookupTable, term_id)
-						//ht, ct, logits = net.Step(&G, xt, ht, ct)
-						ht, logits = net.Step(&G, xt, ht)
+						ht, ct, logits = net.Step(&G, xt, ht, ct)
+						//ht, logits = net.Step(&G, xt, ht)
+						//if term_id == dic.IDByToken(" ") {
 						term_id = Multinomial(Softmax(logits))
-						//term_id, _ = MaxIV(Softmax(logits))
+						//} else {
+						//	term_id, _ = MaxIV(Softmax(logits))
+						//}
 						fmt.Printf("%s", dic.TokenByID(term_id))
 					}
 					fmt.Printf("\n")
@@ -486,7 +493,7 @@ func TestMulticoreLSTMTraining(t *testing.T) {
 func BenchmarkSoftmax(b *testing.B) {
 	b.StopTimer()
 	assembler.Init(false)
-	x := RandMat(100, 1)
+	x := RandMat(1000, 1)
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
 		Softmax(x)
@@ -497,7 +504,7 @@ func BenchmarkSoftmax(b *testing.B) {
 func BenchmarkOptimizedSoftmax(b *testing.B) {
 	b.StopTimer()
 	assembler.Init(true)
-	x := RandMat(100, 1)
+	x := RandMat(1000, 1)
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
 		Softmax(x)

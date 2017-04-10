@@ -36,15 +36,8 @@ func ScaleGradient(model map[string]*Matrix, v float32) {
 //Softmax probability distribution interpretation of any vector/matrix
 func Softmax(m *Matrix) *Matrix {
 	out := Mat(m.Rows, m.Columns) // probability volume
-	var maxval float32 = -math.MaxFloat32
-	l := len(m.W)
-	for i := 0; i < l; i++ {
-		if m.W[i] > maxval {
-			maxval = m.W[i]
-		}
-	}
-
-	for i := 0; i < l; i++ {
+	maxval := m.W[assembler.Ismax(m.W)]
+	for i := range m.W {
 		out.W[i] = float32(math.Exp(float64(m.W[i] - maxval)))
 	}
 	sum := assembler.L1(out.W)
