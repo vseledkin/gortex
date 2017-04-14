@@ -6,7 +6,8 @@ Pure go neural network library
     
     Features: 
         autodifferentiation
-        rnn models support
+        rnn support:
+            vanilla rnn, GRU, LSTM
         language model sample (in test)
 ## Example code
 ```go

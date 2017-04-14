@@ -43,6 +43,6 @@ func (rnn *RNN) Step(g *Graph, x, h_prev *Matrix) (h, y *Matrix) {
 	// y = Who * h
 	h = g.Tanh(g.Add(g.Add(g.Mul(rnn.Wxh, x), g.Mul(rnn.Whh, h_prev)), rnn.Bias))
 
-	y = g.Mul(rnn.Who, g.Tanh(h))
+	y = g.Mul(rnn.Who, h)
 	return
 }

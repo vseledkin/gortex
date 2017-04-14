@@ -1,6 +1,10 @@
 package gortex
 
-import "strings"
+import (
+	"strings"
+	"fmt"
+	"unicode"
+)
 
 //Tokenizer interface to string tokenizer
 type Tokenizer interface {
@@ -14,14 +18,47 @@ func (s WhiteSpaceSplitter) Split(str string) []string {
 	return strings.Fields(str)
 }
 
-//CharSplitter space delimited tokens
+//CharSplitter parses string as sequence of characters
 type CharSplitter struct{}
 
 func (s CharSplitter) Split(str string) []string {
 	runes := []rune(str)
-	ret := make([]string, len(runes))
+	split := make([]string, len(runes))
 	for i, r := range runes {
-		ret[i] = string(r)
+		split[i] = string(r)
 	}
-	return ret
+	return split
+}
+
+//WordSplitter
+type WordSplitter struct{}
+
+func (s WordSplitter) Split(str string) []string {
+	var split []string
+	token := ""
+	for _, r := range str {
+		switch {
+		case unicode.IsPunct(r) || unicode.IsSymbol(r):
+			if len(token) > 0 {
+				split = append(split, token)
+				token = ""
+			}
+			split = append(split, string(r))
+		case len(token) == 0 && unicode.IsSpace(r):
+			continue // skip leading space
+		case len(token) == 0 && !unicode.IsSpace(r):
+			token = string(r)
+		case len(token) > 0 && !unicode.IsSpace(r):
+			token += string(r)
+		case len(token) > 0 && unicode.IsSpace(r):
+			split = append(split, token)
+			token = ""
+		default:
+			panic(fmt.Errorf("unknown symbol %q", r))
+		}
+	}
+	if len(token) > 0 {
+		split = append(split, token)
+	}
+	return split
 }

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"strings"
 )
 
 const UNK = "<unk>"
@@ -82,7 +81,7 @@ func (d *Dictionary) Len() int {
 	return len(d.Token2ID)
 }
 
-func DictionaryFromFile(file string, s Tokenizer) (*Dictionary, error) {
+func CharDictionaryFromFile(file string, s Tokenizer) (*Dictionary, error) {
 	f, e := os.Open(file)
 	if e != nil {
 		return nil, e
@@ -94,7 +93,7 @@ func DictionaryFromFile(file string, s Tokenizer) (*Dictionary, error) {
 		if e != nil {
 			break
 		}
-		line = strings.TrimSpace(line)
+		//line = strings.TrimSpace(line) // remove ending \n
 		if len(line) > 0 {
 			for _, token := range s.Split(line) {
 				_, ok := dic.Token2ID[token]
@@ -105,8 +104,5 @@ func DictionaryFromFile(file string, s Tokenizer) (*Dictionary, error) {
 		}
 	}
 	f.Close()
-	//if _, ok := dic.Token2ID[UNK]; !ok {
-	//	dic.Token2ID[UNK] = len(dic.Token2ID)
-	//}
 	return dic, nil
 }
