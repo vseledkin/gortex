@@ -2,6 +2,7 @@ package gortex
 
 import (
 	"fmt"
+	"github.com/vseledkin/gortex/assembler"
 	"math"
 )
 
@@ -65,17 +66,16 @@ func (g *Graph) Tanh(m *Matrix, messages ...string) *Matrix {
 }
 
 func (g *Graph) Lookup(lt *Matrix, i int) *Matrix {
-	// pickup column at index i from lookup table
+	// pickup rows as embeddings for speed so lt Matrix is treated as row major
 	out := Mat(lt.Rows, 1)
-	for row := 0; row < lt.Rows; row++ {
-		out.W[row] = lt.Get(row, i)
-	}
+	offset := i * lt.Rows
+	// we can point to region in slice instead of copy
+	out.W = lt.W[offset : offset+lt.Rows]
 
 	if g.NeedsBackprop {
 		g.backprop = append(g.backprop, func() {
-			for row := 0; row < lt.Rows; row++ {
-				lt.AddGradient(row, i, out.DW[row])
-			}
+			// gradient landing
+			assembler.Sxpy(out.DW, lt.DW[offset:offset+lt.Rows])
 		})
 	}
 	return out
