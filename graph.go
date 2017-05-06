@@ -243,11 +243,10 @@ func (g *Graph) MSE(m1, t *Matrix) float32 {
 }
 
 //Crossentropy takes logits vector and list of label id
-func (g *Graph) Crossentropy(m1 *Matrix, label int) (cost, probability float32) {
-	l1 := len(m1.W)
+func (g *Graph) Crossentropy(m1 *Matrix, label uint) (cost, probability float32) {
 
-	if label < 0 || label >= l1 {
-		panic(fmt.Errorf("label value must be within range [0;numel(m1)]=[0;%d] but %d given", l1-1, label))
+	if label >= uint(len(m1.W)) {
+		panic(fmt.Errorf("label value must be within range [0;numel(m1)]=[0;%d] but %d given", len(m1.W)-1, label))
 	}
 	// compute probabilities
 	probabilities := Softmax(m1)

@@ -10,7 +10,7 @@ type Matrix struct {
 	Rows    int //number of rows
 	Columns int // number of columns
 	W       []float32
-	DW      []float32 `json:",omit"`
+	DW      []float32 `json:"-"`
 }
 
 func (m *Matrix) SameAs() (mm *Matrix) {
