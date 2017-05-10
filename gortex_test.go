@@ -317,7 +317,7 @@ func TestMulticoreLSTMTraining(t *testing.T) {
 	rand.Seed(time.Now().UnixNano())
 	trainFile := "input.txt"
 	//trainFile := "64.unique.txt"
-	modelName := "MultLSTM"
+	modelName := "MultLSTM350"
 	dic, e := LoadDictionary(modelName + ".dic")
 	if e != nil {
 		dic, e = DictionaryFromFile(trainFile, CharSplitter{})
@@ -331,7 +331,7 @@ func TestMulticoreLSTMTraining(t *testing.T) {
 	}
 
 	embedding_size := 128
-	hidden_size := 256
+	hidden_size := 350
 	fmt.Printf("Dictionary has %d tokens\n", dic.Len())
 	fmt.Printf("%s\n", dic)
 
@@ -412,9 +412,7 @@ func TestMulticoreLSTMTraining(t *testing.T) {
 				for i := 0; i < threads; i++ { // release train
 					license <- 1
 				}
-
 				start = time.Now()
-
 			}
 			if samples_count%1000 == 0 {
 				SaveModel(modelName, model)

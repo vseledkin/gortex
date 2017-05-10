@@ -23,6 +23,10 @@ func Abs(f float32) float32 {
 	return f
 }
 
+func Sqrt(x float32) float32 {
+	return float32(math.Sqrt(float64((x))))
+}
+
 func Zeros(n int) []float32 {
 	return make([]float32, n)
 }
@@ -30,6 +34,33 @@ func Zeros(n int) []float32 {
 func ScaleGradient(model map[string]*Matrix, v float32) {
 	for _, m := range model {
 		assembler.Sscale(v, m.DW)
+	}
+}
+
+func PrintGradient(model map[string]*Matrix) {
+	for k, m := range model {
+		fmt.Printf("Grad: %s %f %f\n", k, m.Norm(), m.NormGradient())
+	}
+}
+
+func PrintZeroGradient(model map[string]*Matrix) {
+	for k, m := range model {
+		wnorm := m.Norm()
+		gnorm := m.NormGradient()
+		if wnorm == 0 {
+			fmt.Printf("\033[93mWarning!!! Weights of %s = %f\033[0m\n", k, wnorm)
+		}
+		if gnorm == 0 {
+			fmt.Printf("\033[93mWarning!!! Gradients of %s = %f\033[0m\n", k, gnorm)
+		}
+	}
+}
+
+func InitWeights(model map[string]*Matrix, dev float32) {
+	for _, m := range model {
+		for i := range m.W {
+			m.W[i] = dev * float32(rand.NormFloat64()) // standard normal distribution (mean = 0, stddev = 1)
+		}
 	}
 }
 

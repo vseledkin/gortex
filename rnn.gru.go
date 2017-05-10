@@ -1,6 +1,7 @@
 package gortex
 
 import "fmt"
+import "github.com/vseledkin/gortex/assembler"
 
 // Gated recurrent unit
 
@@ -18,6 +19,12 @@ type GRU struct {
 	Bh *Matrix
 
 	Who *Matrix
+}
+
+func (gru *GRU) ForgetGateTrick(v float32) {
+	if gru.Bz != nil {
+		assembler.Sset(v, gru.Bz.W)
+	}
 }
 
 func MakeGRU(x_size, h_size, out_size int) *GRU {
@@ -61,7 +68,7 @@ func (rnn *GRU) SetParameters(namespace string, parameters map[string]*Matrix) e
 		fmt.Printf("Look for %s parameters\n", k)
 		if m, ok := parameters[k]; ok {
 			fmt.Printf("Got %s parameters\n", k)
-			v.W = m.W
+			copy(v.W, m.W)
 		} else {
 			return fmt.Errorf("Model geometry is not compatible, parameter %s is unknown", k)
 		}
@@ -75,8 +82,9 @@ func (rnn *GRU) Step(g *Graph, x, h_prev *Matrix) (h, y *Matrix) {
 	rt := g.Sigmoid(g.Add(g.Add(g.Mul(rnn.Wr, x), g.Mul(rnn.Ur, h_prev)), rnn.Br))
 
 	ht := g.Tanh(g.Add(g.Add(g.Mul(rnn.Wh, x), g.Mul(rnn.Uh, g.EMul(rt, h_prev))), rnn.Bh))
-	h = g.Add(g.EMul(zt, h_prev, "5"), g.EMul(g.Sub(zt.OnesAs(), zt), ht, "4"), "3")
+	//h = g.InstanceNormalization(g.Add(g.EMul(zt, h_prev), g.EMul(g.Sub(zt.OnesAs(), zt), ht)))
+	h = g.Add(g.EMul(zt, h_prev), g.EMul(g.Sub(zt.OnesAs(), zt), ht))
 
-	y = g.Mul(rnn.Who, g.Tanh(h, "2"), "1")
+	y = g.Mul(rnn.Who, g.Tanh(h))
 	return
 }
