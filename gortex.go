@@ -105,6 +105,17 @@ func MaxIV(m *Matrix) (int, float32) {
 	return maxIndex, max
 }
 
+func MaxIVUint(m *Matrix) (maxIndex uint, max float32) {
+	max = -math.MaxFloat32
+	for i, v := range m.W {
+		if v > max {
+			max = v
+			maxIndex = uint(i)
+		}
+	}
+	return
+}
+
 func Multinomial(probabilities *Matrix) int {
 	if probabilities.Columns != 1 {
 		panic(fmt.Errorf("Input must be vector"))
@@ -151,4 +162,74 @@ func LoadModel(name string) map[string]*Matrix {
 
 	f.Close()
 	return m
+}
+
+func F1Score(trueLabels, predictedLabels []uint, str []string, excludes map[uint]bool) float64 {
+
+	f := make(map[uint]*struct {
+		tp, fp, fn, p, r, f, c float64
+	})
+
+	for i := range trueLabels {
+		m, ok := f[trueLabels[i]]
+		if !ok {
+			m = new(struct {
+				tp, fp, fn, p, r, f, c float64
+			})
+			f[trueLabels[i]] = m
+		}
+		m.c++
+	}
+	var maxlabel uint
+
+	for i := range trueLabels {
+		x := trueLabels[i]
+		y := predictedLabels[i]
+		if x == y {
+			f[x].tp++
+		} else {
+			f[x].fn++
+			f[y].fp++
+		}
+
+		if maxlabel < trueLabels[i] {
+			maxlabel = trueLabels[i]
+		}
+
+		if maxlabel < predictedLabels[i] {
+			maxlabel = predictedLabels[i]
+		}
+
+	}
+	var F float64
+
+	ff := make([]*struct {
+		tp, fp, fn, p, r, f, c float64
+	}, maxlabel+1)
+
+	for l, m := range f {
+		ff[l] = m
+	}
+	var denominator float64
+	for l, m := range ff {
+		if m != nil && !excludes[uint(l)] {
+			m.p = m.tp / (m.tp + m.fp)
+			if math.IsNaN(m.p) {
+				m.p = 0
+			}
+			m.r = m.tp / (m.tp + m.fn)
+
+			m.f = 2.0 * m.p * m.r / (m.r + m.p)
+			if math.IsNaN(m.f) {
+				m.f = 0
+			}
+			fmt.Printf("label:%d-[%s] Count:%.1f tp:%.1f fn:%.1f fp:%.1f p:%f r:%f f:%f\n", l, str[l], m.c, m.tp, m.fn, m.fp, m.p, m.r, m.f)
+			if !excludes[uint(l)] {
+				F += m.c * m.f
+				denominator += float64(m.c)
+			}
+		}
+	}
+	F /= denominator
+	return F
 }
