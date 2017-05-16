@@ -317,7 +317,7 @@ func TestMulticoreLSTMTraining(t *testing.T) {
 	rand.Seed(time.Now().UnixNano())
 	trainFile := "input.txt"
 	//trainFile := "64.unique.txt"
-	modelName := "MultLSTM350"
+	modelName := "MultLSTM"
 	dic, e := LoadDictionary(modelName + ".dic")
 	if e != nil {
 		dic, e = DictionaryFromFile(trainFile, CharSplitter{})
@@ -331,7 +331,7 @@ func TestMulticoreLSTMTraining(t *testing.T) {
 	}
 
 	embedding_size := 128
-	hidden_size := 350
+	hidden_size := 256
 	fmt.Printf("Dictionary has %d tokens\n", dic.Len())
 	fmt.Printf("%s\n", dic)
 
@@ -412,7 +412,9 @@ func TestMulticoreLSTMTraining(t *testing.T) {
 				for i := 0; i < threads; i++ { // release train
 					license <- 1
 				}
+
 				start = time.Now()
+
 			}
 			if samples_count%1000 == 0 {
 				SaveModel(modelName, model)
@@ -468,6 +470,7 @@ func TestMulticoreLSTMTraining(t *testing.T) {
 					var logits *Matrix
 					for i := 0; i < 100; i++ {
 						xt := G.Lookup(LookupTable, term_id)
+						//ct.W[88] = 1
 						ht, ct, logits = net.Step(&G, xt, ht, ct)
 						//ht, logits = net.Step(&G, xt, ht)
 						//if term_id == dic.IDByToken(" ") {
@@ -478,6 +481,60 @@ func TestMulticoreLSTMTraining(t *testing.T) {
 						fmt.Printf("%s", dic.TokenByID(term_id))
 					}
 					fmt.Printf("\n")
+				}
+
+				if count%100 == 0 { // print some model generated text
+					f, e := os.Create("dynamics.html")
+					if e != nil {
+						t.Fatal()
+					}
+					f.WriteString(
+						`<!DOCTYPE html>
+								<html lang="en">
+									<head>
+    									<meta charset="UTF-8">
+    								</head>
+    								<body>
+    								<table cellspacing="0"><tr>
+`)
+					G := Graph{NeedsBackprop: false}
+					ht := h0
+					ct := h0
+					rows := make([]string, hidden_size)
+					var logits *Matrix
+					for i, term_id := range x[:len(x)-1] {
+						ht, ct, logits = net.Step(&G, G.Lookup(LookupTable, term_id), ht, ct)
+						probs := Softmax(logits)
+						term := dic.TokenByID(term_id)
+						if term == " " {
+							term = "_"
+						}
+						max_term_id, _ := MaxIV(probs)
+						for ai, _ := range probs.W {
+							color := ""
+							if max_term_id == x[i+1] {
+								color = fmt.Sprintf("rgb(0,%d,0)", int(256*probs.W[max_term_id]))
+							} else {
+								color = fmt.Sprintf("rgb(%d,0,0)", int(-256*probs.W[max_term_id]))
+							}
+							if len(rows[ai]) == 0 {
+								rows[ai] += fmt.Sprintf(`<td>%d</td>`, ai)
+							}
+							rows[ai] += fmt.Sprintf(`<td style="font-weight:bold;background-color:%s">%s</td>`, color, term)
+						}
+					}
+					// write terms
+					for _, row := range rows {
+						f.WriteString("<tr>")
+						f.WriteString(row)
+						f.WriteString("</tr>")
+					}
+					f.WriteString(
+						`</tr></table>
+						</body>
+						</html>
+`)
+					f.Close()
 				}
 			}
 		})

@@ -165,7 +165,9 @@ func LoadModel(name string) map[string]*Matrix {
 }
 
 func F1Score(trueLabels, predictedLabels []uint, str []string, excludes map[uint]bool) float64 {
-
+	if len(trueLabels) != len(predictedLabels) {
+		panic(fmt.Errorf("Number of true labels %d and predicted ones %d must match", len(trueLabels), len(predictedLabels)))
+	}
 	f := make(map[uint]*struct {
 		tp, fp, fn, p, r, f, c float64
 	})
@@ -179,6 +181,23 @@ func F1Score(trueLabels, predictedLabels []uint, str []string, excludes map[uint
 			f[trueLabels[i]] = m
 		}
 		m.c++
+		if trueLabels[i] > uint(len(str)-1) {
+			panic(fmt.Errorf("No name for true label %d given", trueLabels[i]))
+		}
+	}
+	// do the same for predicted labels
+	for i := range predictedLabels {
+		m, ok := f[predictedLabels[i]]
+		if !ok {
+			m = new(struct {
+				tp, fp, fn, p, r, f, c float64
+			})
+			f[predictedLabels[i]] = m
+		}
+		if predictedLabels[i] > uint(len(str)-1) {
+			panic(fmt.Errorf("No name for predicted label %d given", predictedLabels[i]))
+		}
+		//m.c++
 	}
 	var maxlabel uint
 
@@ -192,12 +211,12 @@ func F1Score(trueLabels, predictedLabels []uint, str []string, excludes map[uint
 			f[y].fp++
 		}
 
-		if maxlabel < trueLabels[i] {
-			maxlabel = trueLabels[i]
+		if maxlabel < x {
+			maxlabel = x
 		}
 
-		if maxlabel < predictedLabels[i] {
-			maxlabel = predictedLabels[i]
+		if maxlabel < y {
+			maxlabel = y
 		}
 
 	}
