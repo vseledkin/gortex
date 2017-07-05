@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-func CharSampleVisitor(file string, tokenizer Tokenizer, dictionary *Dictionary, visitor func(sample []int)) error {
+func CharSampleVisitor(file string, minLen uint, tokenizer Tokenizer, dictionary *Dictionary, visitor func(sample []uint)) error {
 	f, e := os.Open(file)
 	if e != nil {
 		return e
@@ -24,18 +24,20 @@ func CharSampleVisitor(file string, tokenizer Tokenizer, dictionary *Dictionary,
 		line = strings.TrimSpace(line)
 		if len(line) > 0 {
 			terms := tokenizer.Split(line)
-			sample := make([]int, len(terms))
+			sample := make([]uint, len(terms))
 			for i, term := range terms {
 				sample[i] = dictionary.IDByToken(term)
 			}
-			visitor(sample)
+			if len(sample) > int(minLen) {
+				visitor(sample)
+			}
 		}
 	}
 	f.Close()
 	return nil
 }
 
-func WordSampleVisitor(file string, tokenizer Tokenizer, dictionary *Dictionary, visitor func(sample [][]int)) error {
+func WordSampleVisitor(file string, tokenizer Tokenizer, dictionary *Dictionary, visitor func(sample [][]uint)) error {
 	f, e := os.Open(file)
 	if e != nil {
 		return e
@@ -54,7 +56,7 @@ func WordSampleVisitor(file string, tokenizer Tokenizer, dictionary *Dictionary,
 		//line = strings.TrimSpace(line)
 		if len(line) > 0 {
 			terms := tokenizer.Split(line)
-			sample := make([][]int, len(terms))
+			sample := make([][]uint, len(terms))
 			for i, term := range terms {
 				for _, r := range []rune(term) {
 					sample[i] = append(sample[i], dictionary.IDByToken(string(r)))

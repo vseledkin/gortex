@@ -10,7 +10,7 @@ import (
 const UNK = "<unk>"
 
 type Dictionary struct {
-	Token2ID map[string]int
+	Token2ID map[string]uint
 	id2Token []string `json: omit`
 }
 
@@ -59,7 +59,7 @@ func (d *Dictionary) String() string {
 	return str
 }
 
-func (d *Dictionary) TokenByID(id int) string {
+func (d *Dictionary) TokenByID(id uint) string {
 	if len(d.id2Token) == 0 {
 		d.id2Token = make([]string, len(d.Token2ID))
 		for k, v := range d.Token2ID {
@@ -69,7 +69,7 @@ func (d *Dictionary) TokenByID(id int) string {
 	return d.id2Token[id]
 }
 
-func (d *Dictionary) IDByToken(token string) int {
+func (d *Dictionary) IDByToken(token string) uint {
 	if id, ok := d.Token2ID[token]; ok {
 		return id
 	}
@@ -87,7 +87,7 @@ func CharDictionaryFromFile(file string, s Tokenizer) (*Dictionary, error) {
 		return nil, e
 	}
 	r := bufio.NewReader(f)
-	dic := &Dictionary{Token2ID: make(map[string]int)}
+	dic := &Dictionary{Token2ID: make(map[string]uint)}
 	for {
 		line, e := r.ReadString('\n')
 		if e != nil {
@@ -98,7 +98,7 @@ func CharDictionaryFromFile(file string, s Tokenizer) (*Dictionary, error) {
 			for _, token := range s.Split(line) {
 				_, ok := dic.Token2ID[token]
 				if !ok {
-					dic.Token2ID[token] = len(dic.Token2ID)
+					dic.Token2ID[token] = uint(len(dic.Token2ID))
 				}
 			}
 		}

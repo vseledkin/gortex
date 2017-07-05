@@ -93,19 +93,7 @@ func Moments(m *Matrix) (mean, variance float32) {
 	return
 }
 
-func MaxIV(m *Matrix) (int, float32) {
-	var max float32 = -math.MaxFloat32
-	maxIndex := -1
-	for i, v := range m.W {
-		if v > max {
-			max = v
-			maxIndex = i
-		}
-	}
-	return maxIndex, max
-}
-
-func MaxIVUint(m *Matrix) (maxIndex uint, max float32) {
+func MaxIV(m *Matrix) (maxIndex uint, max float32) {
 	max = -math.MaxFloat32
 	for i, v := range m.W {
 		if v > max {
@@ -116,7 +104,7 @@ func MaxIVUint(m *Matrix) (maxIndex uint, max float32) {
 	return
 }
 
-func Multinomial(probabilities *Matrix) int {
+func Multinomial(probabilities *Matrix) uint {
 	if probabilities.Columns != 1 {
 		panic(fmt.Errorf("Input must be vector"))
 	}
@@ -127,10 +115,10 @@ func Multinomial(probabilities *Matrix) int {
 		offset += p
 		//sample uniform from [0,1]
 		if sample <= offset {
-			return i
+			return uint(i)
 		}
 	}
-	return len(probabilities.W) - 1
+	return uint(len(probabilities.W) - 1)
 }
 
 func SaveModel(name string, m map[string]*Matrix) {
