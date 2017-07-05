@@ -152,7 +152,7 @@ func LoadModel(name string) map[string]*Matrix {
 	return m
 }
 
-func F1Score(trueLabels, predictedLabels []uint, str []string, excludes map[uint]bool) float64 {
+func F1Score(trueLabels, predictedLabels []uint, str []string, excludes map[uint]bool) (float64, string) {
 	if len(trueLabels) != len(predictedLabels) {
 		panic(fmt.Errorf("Number of true labels %d and predicted ones %d must match", len(trueLabels), len(predictedLabels)))
 	}
@@ -218,6 +218,7 @@ func F1Score(trueLabels, predictedLabels []uint, str []string, excludes map[uint
 		ff[l] = m
 	}
 	var denominator float64
+	var message string
 	for l, m := range ff {
 		if m != nil && !excludes[uint(l)] {
 			m.p = m.tp / (m.tp + m.fp)
@@ -230,7 +231,7 @@ func F1Score(trueLabels, predictedLabels []uint, str []string, excludes map[uint
 			if math.IsNaN(m.f) {
 				m.f = 0
 			}
-			fmt.Printf("label:%d-[%s] Count:%.1f tp:%.1f fn:%.1f fp:%.1f p:%f r:%f f:%f\n", l, str[l], m.c, m.tp, m.fn, m.fp, m.p, m.r, m.f)
+			message += fmt.Sprintf("label:%d-[%s] Count:%.1f tp:%.1f fn:%.1f fp:%.1f p:%f r:%f f:%f\n", l, str[l], m.c, m.tp, m.fn, m.fp, m.p, m.r, m.f)
 			if !excludes[uint(l)] {
 				F += m.c * m.f
 				denominator += float64(m.c)
@@ -238,5 +239,5 @@ func F1Score(trueLabels, predictedLabels []uint, str []string, excludes map[uint
 		}
 	}
 	F /= denominator
-	return F
+	return F, message
 }
