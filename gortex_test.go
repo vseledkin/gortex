@@ -572,7 +572,7 @@ func TestAdvRnnTextGenerator(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	z_size := 128
+	z_size := 16
 	hidden_size := 128
 	fmt.Printf("Dictionary has %d tokens\n", dic.Len())
 	fmt.Printf("%s\n", dic)
@@ -591,13 +591,14 @@ func TestAdvRnnTextGenerator(t *testing.T) {
 	ma_g := NewMovingAverage(50)
 	ma_d := NewMovingAverage(50)
 
-	batch_size := 16
+	batch_size := 8
 	max_len := 64
 	theRange := make([]struct{}, max_len)
 	var g_steps, d_steps float32
 	learning_rate := float32(0.001)
 	anneal_rate := float32(0.9999)
 	CharSampleVisitor(trainFile, 10, CharSplitter{}, dic, func(x []uint) {
+		// read sample
 		for i := len(x); len(x) < max_len; i++ {
 			x = append(x, dic.Token2ID[" "])
 		}
@@ -605,98 +606,105 @@ func TestAdvRnnTextGenerator(t *testing.T) {
 		for i := range x {
 			sample += dic.TokenByID(x[i])
 		}
-		// make noise value
-		z := RandMat(z_size, 1)
-		var g_cost, d_cost float32
+		var d_cost, g_cost float32
+		learnDiscriminator := func() {
+			GG := &Graph{NeedsBackprop: false}
+			GD := &Graph{NeedsBackprop: true}
 
-		// forward generator
-		G := &Graph{NeedsBackprop: true}
-		ht := h0
-		logits := make([]*Matrix, max_len)
-		gtext := make([]uint, max_len)
-		// generate text from noise
-		G.NeedsBackprop = false
-		for i := range theRange {
-			ht, logits[i] = generator.Step(G, z, ht)
-			gtext[i], _ = MaxIV(Softmax(logits[i]))
-			g_steps++
-		}
-		G.NeedsBackprop = true
-		// forward discriminator
-		ht = h0
-		var last *Matrix
-		//fake_estimations := make([]*Matrix, max_len)
-		for i := range theRange {
-			d_steps++
-			//ht, fake_estimations[i] = discriminator.Step(G, logits[i], ht)
-			ht, last = discriminator.Step(G, logits[i], ht)
-			// judge fake !
-			//fake_estimations[i].DW[0] = -fake_estimations[i].W[0]
-			//g_cost += fake_estimations[i].DW[0]
-		}
-		generated := ""
-		for i := range x {
-			generated += dic.TokenByID(gtext[i])
-		}
-		g_cost, _ = G.Crossentropy(last, 0)
+			// make noise value
+			z := RandMat(z_size, 1)
 
-		//max, _ := MaxIV(Softmax(last))
-		//fmt.Printf("Generated: [%s] = %d\n", generated, max)
+			// forward generator
+			ht := h0
+			logits := make([]*Matrix, max_len)
+			gtext := make([]uint, max_len)
+			// generate text from noise
+			for i := range theRange {
+				ht, logits[i] = generator.Step(GG, z, ht)
+				gtext[i], _ = MaxIV(Softmax(logits[i]))
+			}
 
-		// now discriminator look at real text
-		ht = h0
-		//real_estimations := make([]*Matrix, len(x))
-		for i := range x {
-			d_steps++
-			oneHot := Mat(dic.Len(), 1)
-			oneHot.W[x[i]] = 1.0
-			ht, last = discriminator.Step(G, oneHot, ht)
-			// judge real !
-			//real_estimations[i].DW[0] = 1 - real_estimations[i].W[0]
-			//d_cost += real_estimations[i].DW[0]
-		}
-		//max, _ = MaxIV(Softmax(last))
-		//fmt.Printf("Real: [%s] = %d\n", sample, max)
-		d_cost, _ = G.Crossentropy(last, 1)
+			// forward discriminator
+			ht = h0
+			var last *Matrix
+			//fake_estimations := make([]*Matrix, max_len)
+			for i := range theRange {
+				d_steps++
+				//ht, fake_estimations[i] = discriminator.Step(G, logits[i], ht)
+				ht, last = discriminator.Step(GD, logits[i], ht)
+				// judge fake !
+				//fake_estimations[i].DW[0] = -fake_estimations[i].W[0]
+				//g_cost += fake_estimations[i].DW[0]
+			}
+			generated := ""
+			for i := range x {
+				generated += dic.TokenByID(gtext[i])
+			}
+			d_cost, _ = GD.Crossentropy(last, 0)
 
-		// LEARN GENERATOR
-		// make noise value
-		z = RandMat(z_size, 1)
+			//max, _ := MaxIV(Softmax(last))
+			//fmt.Printf("Generated: [%s] = %d\n", generated, max)
 
-		// forward generator
-		ht = h0
-
-		gtext2 := make([]uint, max_len)
-		// generate text from noise
-
-		for i := range theRange {
-			ht, logits[i] = generator.Step(G, z, ht)
-			gtext2[i], _ = MaxIV(Softmax(logits[i]))
-			g_steps++
+			// now discriminator look at real text
+			ht = h0
+			//real_estimations := make([]*Matrix, len(x))
+			for i := range x {
+				d_steps++
+				oneHot := Mat(dic.Len(), 1)
+				oneHot.W[x[i]] = 1.0
+				ht, last = discriminator.Step(GD, oneHot, ht)
+				// judge real !
+				//real_estimations[i].DW[0] = 1 - real_estimations[i].W[0]
+				//d_cost += real_estimations[i].DW[0]
+			}
+			//max, _ = MaxIV(Softmax(last))
+			//fmt.Printf("Real: [%s] = %d\n", sample, max)
+			c, _ := GD.Crossentropy(last, 1)
+			d_cost += c
+			d_cost /= 2.0
+			GD.Backward()
 		}
 
-		// forward discriminator
-		ht = h0
-		//fake_estimations := make([]*Matrix, max_len)
-		G.NeedsBackprop = false
-		for i := range theRange {
-			d_steps++
-			//ht, fake_estimations[i] = discriminator.Step(G, logits[i], ht)
-			ht, last = discriminator.Step(G, logits[i], ht)
-			// judge fake !
-			//fake_estimations[i].DW[0] = -fake_estimations[i].W[0]
-			//g_cost += fake_estimations[i].DW[0]
+		learnGenerator := func() {
+			G := &Graph{NeedsBackprop: true}
+			G := &Graph{NeedsBackprop: false}
+
+			// make noise value
+			z := RandMat(z_size, 1)
+
+			// forward generator
+			ht := h0
+			logits := make([]*Matrix, max_len)
+			gtext := make([]uint, max_len)
+			// generate text from noise
+			for i := range theRange {
+				g_steps++
+				ht, logits[i] = generator.Step(G, z, ht)
+				gtext[i], _ = MaxIV(Softmax(logits[i]))
+			}
+
+			// forward discriminator
+			ht = h0
+			var last *Matrix
+			//fake_estimations := make([]*Matrix, max_len)
+			for i := range theRange {
+				//ht, fake_estimations[i] = discriminator.Step(G, logits[i], ht)
+				ht, last = discriminator.Step(G, logits[i], ht)
+				// judge fake !
+				//fake_estimations[i].DW[0] = -fake_estimations[i].W[0]
+				//g_cost += fake_estimations[i].DW[0]
+			}
+			generated := ""
+			for i := range x {
+				generated += dic.TokenByID(gtext[i])
+			}
+			g_cost, _ = G.Crossentropy(last, 1)
+
+			G.Backward()
 		}
-		G.NeedsBackprop = true
-		generated2 := ""
-		for i := range x {
-			generated2 += dic.TokenByID(gtext2[i])
-		}
-		c, _ := G.Crossentropy(last, 1)
-		g_cost += c
-		g_cost /= 2.0
-		// LEARN GENERATOR END
-		G.Backward()
+		learnDiscriminator()
+		learnGenerator()
+
 		// compute gradients
 		//for k, m := range model {
 		//	fmt.Printf("%s %#v %f %f\n", k, m.DW[:2], m.Norm(), m.NormGradient())
