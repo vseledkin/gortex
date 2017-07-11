@@ -31,28 +31,167 @@ func BenchmarkOptimizedSscale(b *testing.B) { //benchmark function starts with "
 	}
 }
 
-func BenchmarkSsum(b *testing.B) { //benchmark function starts with "Benchmark" and takes a pointer to type testing.B
+
+func BenchmarkSset(b *testing.B) { //benchmark function starts with "Benchmark" and takes a pointer to type testing.B
 	b.StopTimer()
 
-	x := make([]float32, 1024)
+	x := make([]float32, 1000000)
 	for i := range x {
-		x[i] = float32(rand.NormFloat64())
+		x[i] = .1
 	}
 	b.StartTimer() //restart timer
 	for i := 0; i < b.N; i++ {
-		ssum(x)
+		sset(2.1, x)
 	}
 }
 
-func BenchmarkOptimizedSsum(b *testing.B) { //benchmark function starts with "Benchmark" and takes a pointer to type testing.B
+func BenchmarkSsetOptimized(b *testing.B) { //benchmark function starts with "Benchmark" and takes a pointer to type testing.B
 	b.StopTimer()
 
-	x := make([]float32, 1024)
+	x := make([]float32, 1000000)
 	for i := range x {
-		x[i] = float32(rand.NormFloat64())
+		x[i] = .1
 	}
 	b.StartTimer() //restart timer
 	for i := 0; i < b.N; i++ {
-		Ssum(x)
+		Sset(2.1, x)
+	}
+}
+
+func BenchmarkSxpy(b *testing.B) { //benchmark function starts with "Benchmark" and takes a pointer to type testing.B
+	b.StopTimer()
+
+	x := make([]float32, 1000000)
+	y := make([]float32, 1000000)
+	for i := range x {
+		x[i] = .1
+		y[i] = .2
+	}
+	b.StartTimer() //restart timer
+	for i := 0; i < b.N; i++ {
+		sxpy(x, y)
+	}
+}
+
+func BenchmarkSxpyOptimized(b *testing.B) { //benchmark function starts with "Benchmark" and takes a pointer to type testing.B
+	b.StopTimer()
+
+	x := make([]float32, 1000000)
+	y := make([]float32, 1000000)
+	for i := range x {
+		x[i] = .1
+		y[i] = .2
+	}
+	b.StartTimer() //restart timer
+	for i := 0; i < b.N; i++ {
+		Sxpy(x, y)
+	}
+}
+
+func BenchmarkL2(b *testing.B) { //benchmark function starts with "Benchmark" and takes a pointer to type testing.B
+	b.StopTimer()
+
+	x := make([]float32, 1000000)
+	for i := range x {
+		x[i] = .1
+	}
+	b.StartTimer() //restart timer
+	for i := 0; i < b.N; i++ {
+		l2(x)
+	}
+}
+
+func BenchmarkOptimizedL2(b *testing.B) { //benchmark function starts with "Benchmark" and takes a pointer to type testing.B
+	b.StopTimer()
+
+	x := make([]float32, 1000000)
+	for i := range x {
+		x[i] = .1
+	}
+	b.StartTimer() //restart timer
+	for i := 0; i < b.N; i++ {
+		L2(x)
+	}
+}
+
+func BenchmarkL2squared(b *testing.B) { //benchmark function starts with "Benchmark" and takes a pointer to type testing.B
+	b.StopTimer()
+
+	x := make([]float32, 1000000)
+	for i := range x {
+		x[i] = .1
+	}
+	b.StartTimer() //restart timer
+	for i := 0; i < b.N; i++ {
+		l2squared(x)
+	}
+}
+
+func BenchmarkOptimizedL2squared(b *testing.B) { //benchmark function starts with "Benchmark" and takes a pointer to type testing.B
+	b.StopTimer()
+
+	x := make([]float32, 1000000)
+	for i := range x {
+		x[i] = .1
+	}
+	b.StartTimer() //restart timer
+	for i := 0; i < b.N; i++ {
+		L2squared(x)
+	}
+}
+
+func BenchmarkSdot(b *testing.B) { //benchmark function starts with "Benchmark" and takes a pointer to type testing.B
+	b.StopTimer()
+
+	x := make([]float32, 1000000)
+	y := make([]float32, 1000000)
+	for i := range x {
+		x[i] = .1
+		y[i] = .2
+	}
+	b.StartTimer() //restart timer
+	for i := 0; i < b.N; i++ {
+		sdot(x, y)
+	}
+}
+
+func BenchmarkOptimizedSdot(b *testing.B) { //benchmark function starts with "Benchmark" and takes a pointer to type testing.B
+	b.StopTimer()
+
+	x := make([]float32, 1000000)
+	y := make([]float32, 1000000)
+	for i := range x {
+		x[i] = .1
+		y[i] = .2
+	}
+	b.StartTimer() //restart timer
+	for i := 0; i < b.N; i++ {
+		Sdot(x, y)
+	}
+}
+
+func BenchmarkSclean(b *testing.B) { //benchmark function starts with "Benchmark" and takes a pointer to type testing.B
+	b.StopTimer()
+
+	x := make([]float32, 1000000)
+	for i := range x {
+		x[i] = .1
+	}
+	b.StartTimer() //restart timer
+	for i := 0; i < b.N; i++ {
+		sclean(x)
+	}
+}
+
+func BenchmarkOptimizedSclean(b *testing.B) { //benchmark function starts with "Benchmark" and takes a pointer to type testing.B
+	b.StopTimer()
+
+	x := make([]float32, 1000000)
+	for i := range x {
+		x[i] = .1
+	}
+	b.StartTimer() //restart timer
+	for i := 0; i < b.N; i++ {
+		Sclean(x)
 	}
 }

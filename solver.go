@@ -1,7 +1,5 @@
 package gortex
 
-import "math"
-
 type Solver struct {
 	decay_rate float32
 	smooth_eps float32
@@ -24,8 +22,8 @@ func (this *Solver) Step(model map[string]*Matrix, step_size, regc, clipval floa
 	for k, m := range model {
 		s, ok := this.step_cache[k]
 		if !ok {
-			this.step_cache[k] = Mat(m.Rows, m.Columns)
-			s = this.step_cache[k]
+			s = Mat(m.Rows, m.Columns)
+			this.step_cache[k] = s
 		}
 		l := len(m.W)
 		for i := 0; i < l; i++ {
@@ -46,10 +44,9 @@ func (this *Solver) Step(model map[string]*Matrix, step_size, regc, clipval floa
 			num_tot++
 
 			// update (and regularize)
-			m.W[i] += -step_size*mdwi/float32(math.Sqrt(float64(s.W[i]+this.smooth_eps))) - regc*m.W[i]
+			m.W[i] += -step_size*mdwi/Sqrt(s.W[i]+this.smooth_eps) - regc*m.W[i]
 			m.DW[i] = 0 // reset gradients for next iteration
 		}
-
 	}
 	solver_stats["ratio_clipped"] = num_clipped * 1.0 / num_tot
 	return solver_stats
