@@ -591,7 +591,7 @@ func TestAdvRnnTextGenerator(t *testing.T) {
 	ma_g := NewMovingAverage(50)
 	ma_d := NewMovingAverage(50)
 
-	batch_size := 8
+	//batch_size := 8
 	max_len := 64
 	theRange := make([]struct{}, max_len)
 	var g_steps, d_steps float32
@@ -663,11 +663,12 @@ func TestAdvRnnTextGenerator(t *testing.T) {
 			d_cost += c
 			d_cost /= 2.0
 			GD.Backward()
+			ScaleGradient(discriminatorModel, 1/d_steps)
+			s.Step(discriminatorModel, learning_rate, 0, 5.0)
 		}
 
 		learnGenerator := func() {
 			G := &Graph{NeedsBackprop: true}
-			G := &Graph{NeedsBackprop: false}
 
 			// make noise value
 			z := RandMat(z_size, 1)
@@ -701,6 +702,9 @@ func TestAdvRnnTextGenerator(t *testing.T) {
 			g_cost, _ = G.Crossentropy(last, 1)
 
 			G.Backward()
+			ScaleGradient(generatorModel, 1/g_steps)
+			s.Step(generatorModel, learning_rate, 0, 5.0)
+			ResetGradients(discriminatorModel)
 		}
 		learnDiscriminator()
 		learnGenerator()
@@ -711,29 +715,30 @@ func TestAdvRnnTextGenerator(t *testing.T) {
 		//}
 		// update model weights
 		count++
-		if count > 0 && count%batch_size == 0 {
-			d_cost /= d_steps
-			g_cost /= g_steps
-			ma_d.Add(d_cost)
-			ma_g.Add(g_cost)
-			//for k, m := range model {
-			//	fmt.Printf("%s %#v %f %f\n", k, m.DW[:2], m.Norm(), m.NormGradient())
-			//}
-			ScaleGradient(generatorModel, 1/g_steps)
-			s.Step(generatorModel, learning_rate, 0, 5.0)
-			ScaleGradient(discriminatorModel, 1/d_steps)
-			s.Step(discriminatorModel, learning_rate, 0, 5.0)
+		//if count > 0 && count%batch_size == 0 {
+		d_cost /= d_steps
+		g_cost /= g_steps
+		ma_d.Add(d_cost)
+		ma_g.Add(g_cost)
+		
+		//for k, m := range model {
+		//	fmt.Printf("%s %#v %f %f\n", k, m.DW[:2], m.Norm(), m.NormGradient())
+		//}
+		//ScaleGradient(generatorModel, 1/g_steps)
+		//s.Step(generatorModel, learning_rate, 0, 5.0)
+		//ScaleGradient(discriminatorModel, 1/d_steps)
+		//s.Step(discriminatorModel, learning_rate, 0, 5.0)
 
-			fmt.Printf("step: %d g: %f d: %f lr: %f\n", count, ma_g.Avg(), ma_d.Avg(), learning_rate)
-			learning_rate = learning_rate * anneal_rate
-		}
+		fmt.Printf("step: %d g: %f d: %f lr: %f\n", count, ma_g.Avg(), ma_d.Avg(), learning_rate)
+		learning_rate = learning_rate * anneal_rate
+		//}
 
 		if count%100 == 0 { // print some model generated text
 			// sample noise
-			z = RandMat(z_size, 1)
+			z := RandMat(z_size, 1)
 			fmt.Printf("MODEL GENERATED TEXT: ")
 			G := Graph{NeedsBackprop: false}
-			ht = h0
+			ht := h0
 			var logit *Matrix
 			for i := 0; i < 100; i++ {
 				ht, logit = generator.Step(&G, z, ht)

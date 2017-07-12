@@ -64,6 +64,14 @@ func InitWeights(model map[string]*Matrix, dev float32) {
 	}
 }
 
+func ResetGradients(model map[string]*Matrix) {
+	for _, m := range model {
+		for i := range m.W {
+			m.DW[i] = 0
+		}
+	}
+}
+
 //Softmax probability distribution interpretation of any vector/matrix
 func Softmax(m *Matrix) *Matrix {
 	out := Mat(m.Rows, m.Columns) // probability volume
