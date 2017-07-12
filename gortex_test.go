@@ -665,6 +665,7 @@ func TestAdvRnnTextGenerator(t *testing.T) {
 			GD.Backward()
 			ScaleGradient(discriminatorModel, 1/d_steps)
 			s.Step(discriminatorModel, learning_rate, 0, 5.0)
+			d_steps = 0
 		}
 
 		learnGenerator := func() {
@@ -703,6 +704,7 @@ func TestAdvRnnTextGenerator(t *testing.T) {
 
 			G.Backward()
 			ScaleGradient(generatorModel, 1/g_steps)
+			g_steps = 0
 			s.Step(generatorModel, learning_rate, 0, 5.0)
 			ResetGradients(discriminatorModel)
 		}
@@ -716,11 +718,11 @@ func TestAdvRnnTextGenerator(t *testing.T) {
 		// update model weights
 		count++
 		//if count > 0 && count%batch_size == 0 {
-		d_cost /= d_steps
-		g_cost /= g_steps
+		//d_cost /= d_steps
+		//g_cost /= g_steps
 		ma_d.Add(d_cost)
 		ma_g.Add(g_cost)
-		
+
 		//for k, m := range model {
 		//	fmt.Printf("%s %#v %f %f\n", k, m.DW[:2], m.Norm(), m.NormGradient())
 		//}
@@ -728,12 +730,13 @@ func TestAdvRnnTextGenerator(t *testing.T) {
 		//s.Step(generatorModel, learning_rate, 0, 5.0)
 		//ScaleGradient(discriminatorModel, 1/d_steps)
 		//s.Step(discriminatorModel, learning_rate, 0, 5.0)
-
-		fmt.Printf("step: %d g: %f d: %f lr: %f\n", count, ma_g.Avg(), ma_d.Avg(), learning_rate)
-		learning_rate = learning_rate * anneal_rate
+		if count%10 == 0 {
+			fmt.Printf("step: %d g: %f d: %f lr: %f\n", count, ma_g.Avg(), ma_d.Avg(), learning_rate)
+		}
 		//}
 
 		if count%100 == 0 { // print some model generated text
+			learning_rate = learning_rate * anneal_rate
 			// sample noise
 			z := RandMat(z_size, 1)
 			fmt.Printf("MODEL GENERATED TEXT: ")
