@@ -572,32 +572,38 @@ func TestAdvRnnTextGenerator(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	z_size := 16
+	z_size := 128
+	g_hidden_size := 128
 	hidden_size := 128
 	fmt.Printf("Dictionary has %d tokens\n", dic.Len())
 	fmt.Printf("%s\n", dic)
 
 	s := NewSolver() // the Solver uses RMSPROP
 
-	generator := MakeGRU(z_size, hidden_size, dic.Len())
-	discriminator := MakeGRU(dic.Len(), hidden_size, 2)
-
-	h0 := Mat(hidden_size, 1) // vector of zeros
+	generator := MakeGRU(z_size, g_hidden_size, dic.Len())
+	discriminator := MakeGRU(dic.Len(), hidden_size, 1)
+	Who := RandXavierMat(2, hidden_size)
 	// define model parameters
 	generatorModel := generator.GetParameters("Generator")
 	discriminatorModel := discriminator.GetParameters("Discriminator")
+	discriminatorModel["www"] = Who
 
 	count := 0
 	ma_g := NewMovingAverage(50)
 	ma_d := NewMovingAverage(50)
 
 	//batch_size := 8
-	max_len := 64
+	pprint := false
+	max_len := 32
 	theRange := make([]struct{}, max_len)
 	var g_steps, d_steps float32
 	learning_rate := float32(0.001)
 	anneal_rate := float32(0.9999)
+	//z := RandMat(z_size, 1)
 	CharSampleVisitor(trainFile, 10, CharSplitter{}, dic, func(x []uint) {
+		if len(x) > max_len {
+			return
+		}
 		// read sample
 		for i := len(x); len(x) < max_len; i++ {
 			x = append(x, dic.Token2ID[" "])
@@ -615,56 +621,69 @@ func TestAdvRnnTextGenerator(t *testing.T) {
 			z := RandMat(z_size, 1)
 
 			// forward generator
-			ht := h0
+			//ght := Mat(g_hidden_size, 1) // vector of zeros
+			ght := z
 			logits := make([]*Matrix, max_len)
 			gtext := make([]uint, max_len)
 			// generate text from noise
 			for i := range theRange {
-				ht, logits[i] = generator.Step(GG, z, ht)
+				ght, logits[i] = generator.Step(GG, z, ght)
 				gtext[i], _ = MaxIV(Softmax(logits[i]))
 			}
 
 			// forward discriminator
-			ht = h0
+			dht := Mat(hidden_size, 1) // vector of zeros
 			var last *Matrix
 			//fake_estimations := make([]*Matrix, max_len)
 			for i := range theRange {
 				d_steps++
 				//ht, fake_estimations[i] = discriminator.Step(G, logits[i], ht)
-				ht, last = discriminator.Step(GD, logits[i], ht)
+				dht, _ = discriminator.Step(GD, logits[i], dht)
 				// judge fake !
 				//fake_estimations[i].DW[0] = -fake_estimations[i].W[0]
 				//g_cost += fake_estimations[i].DW[0]
 			}
+			last = dht
 			generated := ""
 			for i := range x {
 				generated += dic.TokenByID(gtext[i])
 			}
+			last = GD.Mul(Who, last)
 			d_cost, _ = GD.Crossentropy(last, 0)
-
-			//max, _ := MaxIV(Softmax(last))
-			//fmt.Printf("Generated: [%s] = %d\n", generated, max)
-
+			if pprint {
+				max, _ := MaxIV(Softmax(last))
+				fmt.Printf("Generated: [%s] = %d\n", generated, max)
+			}
 			// now discriminator look at real text
-			ht = h0
+			dht2 := Mat(hidden_size, 1) // vector of zeros
 			//real_estimations := make([]*Matrix, len(x))
 			for i := range x {
 				d_steps++
 				oneHot := Mat(dic.Len(), 1)
 				oneHot.W[x[i]] = 1.0
-				ht, last = discriminator.Step(GD, oneHot, ht)
+				dht2, _ = discriminator.Step(GD, oneHot, dht2)
 				// judge real !
 				//real_estimations[i].DW[0] = 1 - real_estimations[i].W[0]
 				//d_cost += real_estimations[i].DW[0]
 			}
-			//max, _ = MaxIV(Softmax(last))
-			//fmt.Printf("Real: [%s] = %d\n", sample, max)
+			last = dht2
+			last = GD.Mul(Who, last)
+			if pprint {
+				max, _ := MaxIV(Softmax(last))
+				fmt.Printf("Real: [%s] = %d\n", sample, max)
+			}
 			c, _ := GD.Crossentropy(last, 1)
 			d_cost += c
-			d_cost /= 2.0
+			//println("O:", g_cost/d_cost)
+
 			GD.Backward()
 			ScaleGradient(discriminatorModel, 1/d_steps)
-			s.Step(discriminatorModel, learning_rate, 0, 5.0)
+			rate := float32(1.0)
+			if g_cost/d_cost > 1 {
+				rate = g_cost / d_cost
+			}
+			s.Step(discriminatorModel, learning_rate/rate, 0, 5.0)
+
 			d_steps = 0
 		}
 
@@ -675,7 +694,8 @@ func TestAdvRnnTextGenerator(t *testing.T) {
 			z := RandMat(z_size, 1)
 
 			// forward generator
-			ht := h0
+			//ht := Mat(g_hidden_size, 1) // vector of zeros
+			ht := z
 			logits := make([]*Matrix, max_len)
 			gtext := make([]uint, max_len)
 			// generate text from noise
@@ -686,30 +706,37 @@ func TestAdvRnnTextGenerator(t *testing.T) {
 			}
 
 			// forward discriminator
-			ht = h0
+			dht := Mat(hidden_size, 1) // vector of zeros
 			var last *Matrix
 			//fake_estimations := make([]*Matrix, max_len)
 			for i := range theRange {
 				//ht, fake_estimations[i] = discriminator.Step(G, logits[i], ht)
-				ht, last = discriminator.Step(G, logits[i], ht)
+				dht, _ = discriminator.Step(G, logits[i], dht)
 				// judge fake !
 				//fake_estimations[i].DW[0] = -fake_estimations[i].W[0]
 				//g_cost += fake_estimations[i].DW[0]
 			}
-			generated := ""
-			for i := range x {
-				generated += dic.TokenByID(gtext[i])
+			last = dht
+			last = G.Mul(Who, last)
+			if pprint {
+				generated := ""
+				for i := range x {
+					generated += dic.TokenByID(gtext[i])
+				}
+				max, _ := MaxIV(Softmax(last))
+				fmt.Printf("GeneratedG: [%s] = %d\n", generated, max)
 			}
 			g_cost, _ = G.Crossentropy(last, 1)
 
 			G.Backward()
 			ScaleGradient(generatorModel, 1/g_steps)
-			g_steps = 0
 			s.Step(generatorModel, learning_rate, 0, 5.0)
+
+			g_steps = 0
 			ResetGradients(discriminatorModel)
 		}
-		learnDiscriminator()
 		learnGenerator()
+		learnDiscriminator()
 
 		// compute gradients
 		//for k, m := range model {
@@ -730,8 +757,8 @@ func TestAdvRnnTextGenerator(t *testing.T) {
 		//s.Step(generatorModel, learning_rate, 0, 5.0)
 		//ScaleGradient(discriminatorModel, 1/d_steps)
 		//s.Step(discriminatorModel, learning_rate, 0, 5.0)
-		if count%10 == 0 {
-			fmt.Printf("step: %d g: %f d: %f lr: %f\n", count, ma_g.Avg(), ma_d.Avg(), learning_rate)
+		if count%1150 == 0 {
+			fmt.Printf("step: %d g: %f d: %f lr: %f w: %f\n", count, g_cost, d_cost, learning_rate, g_cost/d_cost)
 		}
 		//}
 
@@ -741,14 +768,128 @@ func TestAdvRnnTextGenerator(t *testing.T) {
 			z := RandMat(z_size, 1)
 			fmt.Printf("MODEL GENERATED TEXT: ")
 			G := Graph{NeedsBackprop: false}
-			ht := h0
+			//ht := Mat(g_hidden_size, 1) // vector of zeros
+			ht := z
 			var logit *Matrix
-			for i := 0; i < 100; i++ {
+			for i := 0; i < max_len; i++ {
 				ht, logit = generator.Step(&G, z, ht)
 				term_id, _ := MaxIV(Softmax(logit))
 				fmt.Printf("%s", dic.TokenByID(term_id))
 			}
 			fmt.Printf("\n")
 		}
+	})
+}
+
+func TestAutoencoder(t *testing.T) {
+	// maintain random seed
+	rand.Seed(time.Now().UnixNano())
+	trainFile := "input.txt"
+	dic, e := CharDictionaryFromFile(trainFile, CharSplitter{})
+	if e != nil {
+		t.Fatal(e)
+	}
+	hidden_size := 128
+	fmt.Printf("Dictionary has %d tokens\n", dic.Len())
+	fmt.Printf("%s\n", dic)
+
+	s := NewSolver() // the Solver uses RMSPROP
+
+	encoder := MakeGRU(dic.Len(), hidden_size, 1)
+	decoder := MakeGRU(hidden_size, hidden_size, dic.Len())
+
+	// define model parameters
+	encoderModel := encoder.GetParameters("Encoder")
+	decoderModel := decoder.GetParameters("Decoder")
+
+	count := 0
+	ma_d := NewMovingAverage(50)
+	//batch_size := 8
+
+	max_len := 32
+
+	var e_steps, d_steps float32
+	learning_rate := float32(0.001)
+	anneal_rate := float32(0.999)
+
+	CharSampleVisitor(trainFile, 10, CharSplitter{}, dic, func(x []uint) {
+		if len(x) > max_len {
+			return
+		}
+		// read sample
+		sample := ""
+		for i := range x {
+			sample += dic.TokenByID(x[i])
+		}
+		G := &Graph{NeedsBackprop: true}
+		ht := Mat(hidden_size, 1) // vector of zeros
+		var z *Matrix
+		// encode sequence into z
+		for i := range x {
+			e_steps++
+			oneHot := Mat(dic.Len(), 1)
+			oneHot.W[x[i]] = 1.0
+			ht, _ = encoder.Step(G, oneHot, ht)
+		}
+		z = ht // this is the last state of encoder
+		// decode sequence from z
+		ht = Mat(hidden_size, 1) // vector of zeros
+		var logit *Matrix
+		cost := float32(0)
+
+		decoded := ""
+		for i := range x {
+			d_steps++
+			ht, logit = decoder.Step(G, z, ht)
+			c, _ := G.Crossentropy(logit, x[i])
+			cid, _ := MaxIV(Softmax(logit))
+			decoded += dic.TokenByID(cid)
+			cost += c
+		}
+		cost /= float32(len(x))
+		G.Backward()
+		ScaleGradient(encoderModel, 1/e_steps)
+		ScaleGradient(decoderModel, 1/d_steps)
+		s.Step(encoderModel, learning_rate, 0.00001, 5.0)
+		s.Step(decoderModel, learning_rate, 0.00001, 5.0)
+		d_steps = 0
+		e_steps = 0
+
+		count++
+		//if count > 0 && count%batch_size == 0 {
+		//d_cost /= d_steps
+		//g_cost /= g_steps
+		ma_d.Add(cost)
+		//if sample != decoded {
+		//}
+		avg_cost := ma_d.Avg()
+		if count%150 == 0 {
+			fmt.Printf("\ndecoded: [%s]\n", decoded)
+			fmt.Printf("encoded: [%s]\n", sample)
+			fmt.Printf("step: %d loss: %f lr: %f\n", count, avg_cost, learning_rate)
+			fmt.Printf("z: %#v\n", z.W[:10])
+			learning_rate = learning_rate * anneal_rate
+			//if avg_cost < 0.0001 {
+			//	max_len++
+			//	ma_d.Add(1)
+			//	fmt.Printf("max len ++: %d\n", max_len)
+			//}
+		}
+		/*
+			if count%100 == 0 { // print some model generated text
+				learning_rate = learning_rate * anneal_rate
+				// sample noise
+				//z := RandMat(z_size, 1)
+				fmt.Printf("MODEL GENERATED TEXT: ")
+				G := Graph{NeedsBackprop: false}
+				ht := Mat(g_hidden_size, 1) // vector of zeros
+				var logit *Matrix
+				for i := 0; i < max_len; i++ {
+					ht, logit = generator.Step(&G, z, ht)
+					term_id, _ := MaxIV(Softmax(logit))
+					fmt.Printf("%s", dic.TokenByID(term_id))
+				}
+				fmt.Printf("\n")
+			}*/
 	})
 }
