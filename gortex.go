@@ -240,10 +240,8 @@ func F1Score(trueLabels, predictedLabels []uint, str []string, excludes map[uint
 				m.f = 0
 			}
 			message += fmt.Sprintf("label:%d-[%s] Count:%.1f tp:%.1f fn:%.1f fp:%.1f p:%f r:%f f:%f\n", l, str[l], m.c, m.tp, m.fn, m.fp, m.p, m.r, m.f)
-			if !excludes[uint(l)] {
-				F += m.c * m.f
-				denominator += float64(m.c)
-			}
+			F += m.c * m.f
+			denominator += float64(m.c)
 		}
 	}
 	F /= denominator
