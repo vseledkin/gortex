@@ -129,35 +129,41 @@ func Multinomial(probabilities *Matrix) uint {
 	return uint(len(probabilities.W) - 1)
 }
 
-func SaveModel(name string, m map[string]*Matrix) {
+func SaveModel(name string, m map[string]*Matrix) error {
 	fmt.Print("\n---------------------------------------------------\n")
 	fmt.Printf("Saving model to: %s\n", name)
 	fmt.Print("---------------------------------------------------\n")
 	// save MODEL_NAME
 	f, err := os.Create(name)
 	if err != nil {
-		panic(err)
+		return err
 	}
+	defer f.Close()
 	encoder := json.NewEncoder(f)
-	encoder.Encode(m)
-	f.Close()
+	err = encoder.Encode(m)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
-func LoadModel(name string) map[string]*Matrix {
+func LoadModel(name string) (map[string]*Matrix, error) {
 	if len(name) == 0 {
-		panic(fmt.Errorf("No model file provided! [%s]", name))
+		return nil, fmt.Errorf("No model file provided! [%s]", name)
 	}
 	fmt.Printf("Loading learned model %s\n", name)
 	f, e := os.Open(name)
 	if e != nil {
-		panic(e)
+		return nil, e
 	}
+	defer f.Close()
 	var m map[string]*Matrix
 	decoder := json.NewDecoder(f)
-	decoder.Decode(&m)
-
-	f.Close()
-	return m
+	err := decoder.Decode(&m)
+	if err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 func F1Score(trueLabels, predictedLabels []uint, str []string, excludes map[uint]bool) (float64, string) {
