@@ -275,6 +275,40 @@ func (g *Graph) EMul(m1, m2 *Matrix, messages ...string) *Matrix {
 	return out
 }
 
+// Concatenate two or more vectors
+func (g *Graph) Concat(m ...*Matrix) *Matrix {
+	L := len(m)
+	if L < 2 {
+		panic(fmt.Errorf("concat is for two or more vectors but %d vectors given", L))
+	}
+	L = 0
+	for _, v := range m {
+		L += v.Rows
+	}
+	out := Mat(L, 1)
+	// copy in natural order
+	L = 0
+	for _, v := range m {
+		for _, f := range v.W {
+			out.W[L] = f
+			L++
+		}
+	}
+	if g.NeedsBackprop {
+		g.backprop = append(g.backprop, func() {
+			// copy gradients
+			L = 0
+			for _, v := range m {
+				for i := range v.DW {
+					v.DW[i] = out.DW[L]
+					L++
+				}
+			}
+		})
+	}
+	return out
+}
+
 func (g *Graph) MSE(m1, t *Matrix) float32 {
 	l1 := len(m1.W)
 	l2 := len(t.W)
