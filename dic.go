@@ -37,7 +37,6 @@ func LoadDictionary(name string) (*Dictionary, error) {
 	if len(name) == 0 {
 		return nil, fmt.Errorf("No dictionary file provided! [%s]", name)
 	}
-	fmt.Printf("Loading dictionary %s\n", name)
 	f, e := os.Open(name)
 	if e != nil {
 		return nil, e

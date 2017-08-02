@@ -151,7 +151,6 @@ func LoadModel(name string) (map[string]*Matrix, error) {
 	if len(name) == 0 {
 		return nil, fmt.Errorf("No model file provided! [%s]", name)
 	}
-	fmt.Printf("Loading learned model %s\n", name)
 	f, e := os.Open(name)
 	if e != nil {
 		return nil, e
