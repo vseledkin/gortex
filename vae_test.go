@@ -110,7 +110,8 @@ func TestVae(t *testing.T) {
 				fmt.Printf("step: %d loss: %f lr: %f\n", count, avg_cost, learning_rate)
 				fmt.Printf("dev: %f mean: %f\n", assembler.L1(dev.W), assembler.L1(mean.W))
 				fmt.Printf("dev: %#v\n", dev.W[:10])
-
+				mid, miv := MaxIV(dev)
+				fmt.Printf("dev: %d %f\n", mid, miv)
 				learning_rate = learning_rate * anneal_rate
 			}
 			/*
