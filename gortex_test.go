@@ -23,7 +23,7 @@ func TestMultinomial(t *testing.T) {
 		sampled := Multinomial(p)
 		ps.W[sampled]++
 	}
-	sum := assembler.L1(ps.W)
+	sum := assembler.Sum(ps.W)
 	assembler.Sscale(1/sum, ps.W)
 	t.Logf("Sampled Probabilities %#v", ps.W)
 	// compare given and sampled probabilities
@@ -349,7 +349,10 @@ func TestMulticoreLSTMTraining(t *testing.T) {
 	var model map[string]*Matrix
 	var LookupTable *Matrix
 	if _, err := os.Stat(modelName); err == nil {
-		model = LoadModel(modelName)
+		model, e = LoadModel(modelName)
+		if e != nil {
+			t.Fatal(e)
+		}
 		e = net.SetParameters(modelName, model)
 		if e != nil {
 			t.Fatal(e)

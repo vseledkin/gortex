@@ -25,7 +25,7 @@ func l1test(t *testing.T,b *testing.B) {
 			sumfast := l1asm(x)
 			sum := l1(x)
 			// numeric issues
-			if float32(math.Abs(float64(sumfast-sum))) > 1e-5 {
+			if float32(math.Abs(float64(sumfast-sum))) > 1e-4 {
 				t.Fatalf("sums do not match want %0.6f got %0.6f in vector of length %d\n", sum, sumfast, len(x))
 			}
 		}

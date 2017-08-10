@@ -1,10 +1,7 @@
-// func l1asm(X []float32) float32
-TEXT ·l1asm(SB), 7, $0
+// func sumasm(X []float32) float32
+TEXT ·sumasm(SB), 7, $0
   MOVQ	X_data+0(FP), SI
   MOVQ	X_len+8(FP), BP
-  // Setup mask for sign bit clear
-  PCMPEQW	X4, X4
-  PSRLL	$1, X4
 
   // Clear accumulator
   XORPS	X0, X0
@@ -16,7 +13,6 @@ TEXT ·l1asm(SB), 7, $0
     //PREFETCHNTA (128*4)(SI)
     // Clear sign on all four values
     MOVUPS	(SI), X1
-    ANDPS	X4, X1
     ADDPS	X1, X0
 
     // Update data pointer
@@ -41,7 +37,6 @@ rest:
   loop:
     // Multiply one value
     MOVSS	(SI), X1
-    ANDPS	X4, X1
     // Update data pointers
     ADDQ	$4, SI
     // Accumulate the results of multiplication

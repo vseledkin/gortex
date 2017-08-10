@@ -1,5 +1,7 @@
 package gortex
 
+import "github.com/vseledkin/gortex/assembler"
+
 type SGDSolver struct{}
 
 func NewSGDSolver() *SGDSolver {
@@ -9,10 +11,8 @@ func NewSGDSolver() *SGDSolver {
 
 func (this *SGDSolver) Step(model map[string]*Matrix, step_size float32) {
 	for _, m := range model {
-		for i := range m.W {
-			m.W[i] += -step_size * m.DW[i]
-			m.DW[i] = 0 // reset gradients for next iteration
-		}
+		assembler.Saxpy(-step_size, m.DW, m.W)
+		assembler.Sclean(m.DW)
 	}
 	return
 }

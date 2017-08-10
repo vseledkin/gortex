@@ -66,9 +66,7 @@ func InitWeights(model map[string]*Matrix, dev float32) {
 
 func ResetGradients(model map[string]*Matrix) {
 	for _, m := range model {
-		for i := range m.W {
-			m.DW[i] = 0
-		}
+		assembler.Sclean(m.DW)
 	}
 }
 
@@ -79,7 +77,7 @@ func Softmax(m *Matrix) *Matrix {
 	for i := range m.W {
 		out.W[i] = float32(math.Exp(float64(m.W[i] - maxval)))
 	}
-	sum := assembler.L1(out.W)
+	sum := assembler.Sum(out.W)
 	assembler.Sscale(1/sum, out.W)
 
 	// no backward pass here needed
@@ -89,7 +87,7 @@ func Softmax(m *Matrix) *Matrix {
 }
 
 func Moments(m *Matrix) (mean, variance float32) {
-	mean = assembler.L1(m.W) / float32(len(m.W))
+	mean = assembler.Sum(m.W) / float32(len(m.W))
 
 	var total float32
 	var tmp float32
@@ -151,6 +149,7 @@ func LoadModel(name string) (map[string]*Matrix, error) {
 	if len(name) == 0 {
 		return nil, fmt.Errorf("No model file provided! [%s]", name)
 	}
+	//fmt.Printf("Loading learned model %s\n", name)
 	f, e := os.Open(name)
 	if e != nil {
 		return nil, e

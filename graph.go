@@ -49,7 +49,7 @@ func (g *Graph) InstanceNormalization(m *Matrix) *Matrix {
 					m.DW[i] += scale * out.DW[i]
 				}
 			*/
-			sum := assembler.L1(out.DW)
+			sum := assembler.Sum(out.DW)
 			var sum2 float32
 			for i := range m.W {
 				sum2 += out.DW[i] * (m.W[i] - mean)
