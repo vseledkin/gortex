@@ -48,7 +48,7 @@ func TestVae(t *testing.T) {
 		var e_steps, d_steps float32
 		learning_rate := float32(0.001)
 		anneal_rate := float32(0.999)
-
+		batch_size := 16
 		CharSampleVisitor(trainFile, 10, CharSplitter{}, dic, func(x []uint) {
 			if len(x) > max_len {
 				return
@@ -87,14 +87,15 @@ func TestVae(t *testing.T) {
 			}
 			cost /= float32(len(x))
 			G.Backward()
-			ScaleGradient(encoderModel, 1/e_steps)
-			ScaleGradient(decoderModel, 1/d_steps)
-			s.Step(encoderModel, learning_rate, 0.0, 5.0)
-			s.Step(vaeModel, learning_rate, 0.0, 0.0)
-			s.Step(decoderModel, learning_rate, 0.0, 5.0)
-			d_steps = 0
-			e_steps = 0
-
+			if count % batch_size == 0 && count > 0 {
+				//ScaleGradient(encoderModel, 1/e_steps)
+				//ScaleGradient(decoderModel, 1/d_steps)
+				s.Step(encoderModel, learning_rate, 0.0, 5.0)
+				s.Step(vaeModel, learning_rate, 0.0, 0.0)
+				s.Step(decoderModel, learning_rate, 0.0, 5.0)
+				d_steps = 0
+				e_steps = 0
+			}
 			count++
 			//if count > 0 && count%batch_size == 0 {
 			//d_cost /= d_steps
@@ -108,6 +109,7 @@ func TestVae(t *testing.T) {
 				fmt.Printf("encoded: [%s]\n", sample)
 				fmt.Printf("step: %d loss: %f lr: %f\n", count, avg_cost, learning_rate)
 				fmt.Printf("dev: %f mean: %f\n", assembler.L1(dev.W), assembler.L1(mean.W))
+				fmt.Printf("dev: %#v\n", dev.W[:10])
 
 				learning_rate = learning_rate * anneal_rate
 			}

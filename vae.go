@@ -63,7 +63,7 @@ func (vae *VAE) Step(g *Graph, x *Matrix) (sample, mean, dev *Matrix) {
 	//println("B", vae.B.Rows, vae.B.Columns)
 	xz := g.Tanh(g.Add(g.Mul(vae.W, x), vae.B))
 	mean = g.Add(g.Mul(vae.WM, xz), vae.BM)
-	dev = g.Sigmoid(g.Add(g.Mul(vae.WD, xz), vae.BD)) // must be positive
+	dev = g.Softmax(g.Add(g.Mul(vae.WD, xz), vae.BD)) // must be positive
 	// sample random vector from normal 0 1 distribution
 	eps := RandMat(vae.z_size, 1)
 	// sample exemplar from generated distribution

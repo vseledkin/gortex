@@ -100,7 +100,26 @@ func (g *Graph) Lookup(lt *Matrix, i int) *Matrix {
 	}
 	return out
 }
+//Softmax probability distribution interpretation of any vector/matrix
+func (g *Graph) Softmax(m *Matrix) *Matrix {
+	out := Mat(m.Rows, m.Columns) // probability volume
+	maxval := m.W[assembler.Ismax(m.W)]
+	for i := range m.W {
+		out.W[i] = float32(math.Exp(float64(m.W[i] - maxval)))
+	}
+	sum := assembler.Sum(out.W)
+	assembler.Sscale(1/sum, out.W)
 
+	if g.NeedsBackprop {
+		g.backprop = append(g.backprop, func() {
+			//assembler.Sxpy(out.W, m.DW)
+			for i := range m.W {
+				m.DW[i] += out.W[i] * out.DW[i]
+			}
+		})
+	}
+	return out
+}
 func (g *Graph) Sigmoid(m *Matrix) *Matrix {
 	// sigmoid nonlinearity
 	out := m.SameAs()
