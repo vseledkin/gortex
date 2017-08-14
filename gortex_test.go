@@ -224,7 +224,7 @@ func TestGruRnn(t *testing.T) {
 	// start from random
 	rand.Seed(time.Now().UnixNano())
 	trainFile := "input.txt"
-	dic, e := CharDictionaryFromFile(trainFile, CharSplitter{})
+	dic, e := DictionaryFromFile(trainFile, CharSplitter{})
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -251,7 +251,7 @@ func TestGruRnn(t *testing.T) {
 	batch_size := 16
 	learning_rate := float32(0.001)
 	anneal_rate := float32(0.9999)
-	CharSampleVisitor(trainFile, 10, CharSplitter{}, dic, func(epoch int,x []uint) {
+	CharSampleVisitor(trainFile, 10, CharSplitter{}, dic, func(epoch int, x []uint) {
 		// map term indexes in dictionary to embedding vectors
 		var x_cost, x_probability float32
 		//fmt.Printf("X:\n")
@@ -319,7 +319,7 @@ func TestMulticoreLSTMTraining(t *testing.T) {
 	modelName := "MultLSTM"
 	dic, e := LoadDictionary(modelName + ".dic")
 	if e != nil {
-		dic, e = CharDictionaryFromFile(trainFile, CharSplitter{})
+		dic, e = DictionaryFromFile(trainFile, CharSplitter{})
 		if e != nil {
 			t.Fatal(e)
 		}
@@ -571,7 +571,7 @@ func TestAdvRnnTextGenerator(t *testing.T) {
 	// maintain random seed
 	rand.Seed(time.Now().UnixNano())
 	trainFile := "input.txt"
-	dic, e := CharDictionaryFromFile(trainFile, CharSplitter{})
+	dic, e := DictionaryFromFile(trainFile, CharSplitter{})
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -788,7 +788,7 @@ func TestAutoencoder(t *testing.T) {
 	// maintain random seed
 	rand.Seed(time.Now().UnixNano())
 	trainFile := "input.txt"
-	dic, e := CharDictionaryFromFile(trainFile, CharSplitter{})
+	dic, e := DictionaryFromFile(trainFile, CharSplitter{})
 	if e != nil {
 		t.Fatal(e)
 	}

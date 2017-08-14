@@ -86,6 +86,15 @@ func Softmax(m *Matrix) *Matrix {
 	return out
 }
 
+// Take elementwise exponent of x
+func Exp(x *Matrix) *Matrix {
+	out := Mat(x.Rows, x.Columns)
+	for i := range x.W {
+		out.W[i] = float32(math.Exp(float64(x.W[i])))
+	}
+
+	return out
+}
 func Moments(m *Matrix) (mean, variance float32) {
 	mean = assembler.Sum(m.W) / float32(len(m.W))
 

@@ -2,9 +2,9 @@ package gortex
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	"strings"
-	"fmt"
 )
 
 func CharSampleVisitor(file string, minLen uint, tokenizer Tokenizer, dictionary *Dictionary, visitor func(epoch int, sample []uint)) error {
@@ -22,7 +22,7 @@ func CharSampleVisitor(file string, minLen uint, tokenizer Tokenizer, dictionary
 			if e != nil {
 				break
 			}
-			epoch ++
+			epoch++
 		}
 		line = strings.TrimSpace(line)
 		if len(line) > 0 {
@@ -57,7 +57,7 @@ func CharClassifierSampleVisitor(file string, minLen uint, rewind bool, tokenize
 			} else {
 				break
 			}
- 		}
+		}
 		line = strings.TrimSpace(line)
 		if len(line) > 0 {
 			index := strings.LastIndex(line, " __label__")
@@ -79,11 +79,42 @@ func CharClassifierSampleVisitor(file string, minLen uint, rewind bool, tokenize
 	return nil
 }
 
-func WordSampleVisitor(file string, tokenizer Tokenizer, dictionary *Dictionary, visitor func(sample [][]uint)) error {
+func WordSampleVisitor(file string, tokenizer Tokenizer, dictionary *Dictionary, visitor func(epoch int, sample []uint)) error {
 	f, e := os.Open(file)
 	if e != nil {
 		return e
 	}
+	epoch := 0
+	r := bufio.NewReader(f)
+	for {
+		line, e := r.ReadString('\n')
+		if e != nil {
+			f.Seek(0, 0)
+			line, e = r.ReadString('\n')
+			if e != nil {
+				break
+			}
+			epoch++
+		}
+		//line = strings.TrimSpace(line)
+		if len(line) > 0 {
+			terms := tokenizer.Split(line)
+			sample := make([]uint, len(terms))
+			for i, term := range terms {
+				sample[i] = dictionary.IDByToken(term)
+			}
+			visitor(epoch, sample)
+		}
+	}
+	f.Close()
+	return nil
+}
+func WordCharSampleVisitor(file string, tokenizer Tokenizer, dictionary *Dictionary, visitor func(epoch int, sample [][]uint)) error {
+	f, e := os.Open(file)
+	if e != nil {
+		return e
+	}
+	epoch := 0
 	r := bufio.NewReader(f)
 	for {
 		line, e := r.ReadString('\n')
@@ -94,6 +125,7 @@ func WordSampleVisitor(file string, tokenizer Tokenizer, dictionary *Dictionary,
 			if e != nil {
 				break
 			}
+			epoch++
 		}
 		//line = strings.TrimSpace(line)
 		if len(line) > 0 {
@@ -104,7 +136,7 @@ func WordSampleVisitor(file string, tokenizer Tokenizer, dictionary *Dictionary,
 					sample[i] = append(sample[i], dictionary.IDByToken(string(r)))
 				}
 			}
-			visitor(sample)
+			visitor(epoch, sample)
 		}
 	}
 	f.Close()

@@ -80,7 +80,7 @@ func (d *Dictionary) Len() int {
 	return len(d.Token2ID)
 }
 
-func CharDictionaryFromFile(file string, s Tokenizer) (*Dictionary, error) {
+func DictionaryFromFile(file string, s Tokenizer) (*Dictionary, error) {
 	f, e := os.Open(file)
 	if e != nil {
 		return nil, e

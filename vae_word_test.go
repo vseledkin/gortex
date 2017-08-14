@@ -12,11 +12,11 @@ import (
 	"github.com/vseledkin/gortex/assembler"
 )
 
-func TestVae(t *testing.T) {
+func TestWordVae(t *testing.T) {
 	// maintain random seed
 	rand.Seed(time.Now().UnixNano())
 	trainFile := "input.txt"
-	dic, e := DictionaryFromFile(trainFile, CharSplitter{})
+	dic, e := DictionaryFromFile(trainFile, WordSplitter{})
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -51,11 +51,11 @@ func TestVae(t *testing.T) {
 	learning_rate := float32(0.001)
 	anneal_rate := float32(0.9999)
 	batch_size := 16
-	CharSampleVisitor(trainFile, 1, CharSplitter{}, dic, func(epoch int, x []uint) {
+	WordSampleVisitor(trainFile, WordSplitter{}, dic, func(epoch int, x []uint) {
 		// read sample
 		sample := ""
 		for i := range x {
-			sample += dic.TokenByID(x[i])
+			sample += dic.TokenByID(x[i]) + " "
 		}
 		G := &Graph{NeedsBackprop: true}
 		ht := Mat(hidden_size, 1).OnesAs() // vector of zeros
@@ -82,7 +82,7 @@ func TestVae(t *testing.T) {
 			ht, ct, logit = decoder.Step(G, distribution, ht, ct)
 			c, _ := G.Crossentropy(logit, x[i])
 			cid, _ := MaxIV(Softmax(logit))
-			decoded += dic.TokenByID(cid)
+			decoded += dic.TokenByID(cid) + " "
 			cost += c
 		}
 		cost /= float32(len(x))
@@ -134,27 +134,12 @@ func TestVae(t *testing.T) {
 				for range make([]struct{}, 32) {
 					ht, ct, logit = decoder.Step(gg, z, ht, ct)
 					cid, _ := MaxIV(Softmax(logit))
-					decoded += dic.TokenByID(cid)
+					decoded += dic.TokenByID(cid) + " "
 				}
 				fmt.Printf("%0.2f sentence: %s\n", a, decoded)
 			}
 		}
-		/*
-			if count%100 == 0 { // print some model generated text
-				learning_rate = learning_rate * anneal_rate
-				// sample noise
-				//z := RandMat(z_size, 1)
-				fmt.Printf("MODEL GENERATED TEXT: ")
-				G := Graph{NeedsBackprop: false}
-				ht := Mat(g_hidden_size, 1) // vector of zeros
-				var logit *Matrix
-				for i := 0; i < max_len; i++ {
-					ht, logit = generator.Step(&G, z, ht)
-					term_id, _ := MaxIV(Softmax(logit))
-					fmt.Printf("%s", dic.TokenByID(term_id))
-				}
-				fmt.Printf("\n")
-			}*/
+
 	})
 
 	termui.Loop()
