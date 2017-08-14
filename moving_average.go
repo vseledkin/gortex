@@ -1,5 +1,7 @@
 package gortex
 
+import "github.com/vseledkin/gortex/assembler"
+
 type MovingAverage struct {
 	Window      int
 	values      []float32
@@ -8,7 +10,6 @@ type MovingAverage struct {
 }
 
 func (ma *MovingAverage) Avg() float32 {
-	var sum float32
 	var c = ma.Window - 1
 
 	// Are all slots filled? If not, ignore unused
@@ -21,15 +22,9 @@ func (ma *MovingAverage) Avg() float32 {
 	}
 
 	// Sum values
-	var ic = 0
-	for i := 0; i <= c; i++ {
-		sum += ma.values[i]
-		ic++
-	}
 
-	// Finalize average and return
-	avg := sum / float32(ic)
-	return avg
+	data := ma.values[:c]
+	return assembler.Sum(data) / float32(len(data))
 }
 
 func (ma *MovingAverage) Add(val float32) {
