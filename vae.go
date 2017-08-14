@@ -72,9 +72,9 @@ func (vae *VAE) Step(g *Graph, x *Matrix) (sample, mean, logvar *Matrix) {
 func (vae *VAE) KLD(g *Graph, scale float32, mean, logvar *Matrix) float32 {
 	// make VAE computation graph
 	kld := g.MulConstant(-0.5, g.Sum(g.Sub(g.Sub(g.AddConstant(1.0, logvar), g.EMul(mean, mean)), g.Exp(logvar))))
-	if g.NeedsBackprop {
+	if g.NeedsBackprop && scale > 0 {
 		g.backprop = append(g.backprop, func() {
-			kld.DW[0] = scale * kld.W[0]
+			kld.DW[0] += scale * kld.W[0]
 		})
 	}
 	return kld.W[0]

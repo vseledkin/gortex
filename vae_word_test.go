@@ -51,6 +51,7 @@ func TestWordVae(t *testing.T) {
 	learning_rate := float32(0.001)
 	anneal_rate := float32(0.9999)
 	batch_size := 16
+	kld_scale := float32(0.000001)
 	WordSampleVisitor(trainFile, WordSplitter{}, dic, func(epoch int, x []uint) {
 		// read sample
 		sample := ""
@@ -69,7 +70,7 @@ func TestWordVae(t *testing.T) {
 		}
 		distribution, mean, logvar := vae.Step(G, ct)
 		// estimate KLD
-		kld := vae.KLD(G, 0.0001, mean, logvar)
+		kld := vae.KLD(G, kld_scale, mean, logvar)
 		// decode sequence from z
 		var logit *Matrix
 		cost := float32(0)
@@ -115,11 +116,13 @@ func TestWordVae(t *testing.T) {
 		if count%500 == 0 {
 			fmt.Printf("\ndecoded: [%s]\n", decoded)
 			fmt.Printf("encoded: [%s]\n", sample)
-			fmt.Printf("epoch: %d step: %d loss: %f lr: %f\n", epoch, count, avg_cost, learning_rate)
+			fmt.Printf("epoch: %d step: %d loss: %f lr: %f kld_scale: %f\n", epoch, count, avg_cost, learning_rate, kld_scale)
 			fmt.Printf("mean: %f dev: %f kld: %f\n", avg_mean, avg_dev, ma_kld_cost.Avg())
 			fmt.Printf("dev: %#v\n", dev.W[:10])
 			learning_rate = learning_rate * anneal_rate
-
+			if avg_cost < 2.0 {
+				kld_scale += 0.000001
+			}
 			// interpolate between two pints
 			z1 := RandMat(vae.z_size, 1)
 			z2 := RandMat(vae.z_size, 1)
