@@ -90,7 +90,7 @@ func (g *Graph) Lookup(lt *Matrix, i int) *Matrix {
 	out := Mat(lt.Rows, 1)
 	offset := i * lt.Rows
 	// we can point to region in slice instead of copy
-	out.W = lt.W[offset : offset+lt.Rows]
+	out.W = lt.W[offset: offset+lt.Rows]
 
 	if g.NeedsBackprop {
 		g.backprop = append(g.backprop, func() {
@@ -100,6 +100,7 @@ func (g *Graph) Lookup(lt *Matrix, i int) *Matrix {
 	}
 	return out
 }
+
 //Softmax probability distribution interpretation of any vector/matrix
 func (g *Graph) Softmax(m *Matrix) *Matrix {
 	out := Mat(m.Rows, m.Columns) // probability volume
@@ -120,6 +121,7 @@ func (g *Graph) Softmax(m *Matrix) *Matrix {
 	}
 	return out
 }
+
 func (g *Graph) Sigmoid(m *Matrix) *Matrix {
 	// sigmoid nonlinearity
 	out := m.SameAs()
@@ -157,11 +159,6 @@ func (g *Graph) Add(m1, m2 *Matrix, messages ...string) *Matrix {
 		g.backprop = append(g.backprop, func() {
 			assembler.Sxpy(out.DW, m1.DW)
 			assembler.Sxpy(out.DW, m2.DW)
-			/*
-				for i := 0; i < l1; i++ {
-					m1.DW[i] += out.DW[i]
-					m2.DW[i] += out.DW[i]
-				}*/
 			if len(messages) > 0 && g.Print {
 				fmt.Printf("%s Add In1(%p N:%f GN:%f) In2(%p N:%f GN:%f) Out(%p N:%f GN:%f)\n",
 					messages[0], m1, m1.Norm(), m1.NormGradient(), m2, m2.Norm(), m2.NormGradient(), out, out.Norm(), out.NormGradient())
@@ -256,6 +253,57 @@ func (g *Graph) Mul(m1, m2 *Matrix, messages ...string) *Matrix {
 				fmt.Printf("%s Mul In1(%p N:%f GN:%f) In2(%p N:%f GN:%f) Out(%p N:%f GN:%f)\n",
 					messages[0], m1, m1.Norm(), m1.NormGradient(), m2, m2.Norm(), m2.NormGradient(), out, out.Norm(), out.NormGradient())
 			}
+		})
+	}
+	return out
+}
+// Sum of weights of x
+func (g *Graph) Sum(x *Matrix) *Matrix {
+	out := Mat(x.Rows, x.Columns)
+	out.W[0] = assembler.Sum(x.W)
+	if g.NeedsBackprop {
+		g.backprop = append(g.backprop, func() {
+			for i := range x.DW {
+				x.DW[i] += out.DW[0]
+			}
+		})
+	}
+	return out
+}
+
+// Add non learnable constant to x
+func (g *Graph) AddConstant(c float32, x *Matrix) *Matrix {
+	out := x.ConstantAs(c)
+	assembler.Sxpy(x.W, out.W)
+	if g.NeedsBackprop {
+		g.backprop = append(g.backprop, func() {
+			assembler.Sxpy(out.DW, x.DW)
+		})
+	}
+	return out
+}
+
+// Multiply x by a non learnable constant
+func (g *Graph) MulConstant(c float32, x *Matrix) *Matrix {
+	out := x.CopyAs()
+	assembler.Sscale(c, out.W)
+	if g.NeedsBackprop {
+		g.backprop = append(g.backprop, func() {
+			assembler.Saxpy(c, out.DW, x.DW)
+		})
+	}
+	return out
+}
+
+// Take elementwise exponent of x
+func (g *Graph) Exp(x *Matrix) *Matrix {
+	out := Mat(x.Rows, x.Columns)
+	for i := range x.W {
+		out.W[i] = float32(math.Exp(float64(x.W[i])))
+	}
+	if g.NeedsBackprop {
+		g.backprop = append(g.backprop, func() {
+			assembler.Sxmulelyplusz(out.DW, out.W, x.DW)
 		})
 	}
 	return out

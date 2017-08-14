@@ -37,6 +37,14 @@ func (m *Matrix) OnesAs() (mm *Matrix) {
 	return
 }
 
+func (m *Matrix) ConstantAs(c float32) (mm *Matrix) {
+	mm = Mat(m.Rows, m.Columns)
+	for i := range mm.W {
+		mm.W[i] = c
+	}
+	return
+}
+
 func (m *Matrix) Get(row, col int) float32 {
 	// slow but careful accessor function
 	// we want row-major order

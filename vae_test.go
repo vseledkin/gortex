@@ -6,12 +6,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/vseledkin/gortex/assembler"
 	"github.com/gizak/termui"
+	"math"
 )
 
 func TestVae(t *testing.T) {
-
 		// maintain random seed
 		rand.Seed(time.Now().UnixNano())
 		trainFile := "input.txt"
@@ -40,19 +39,16 @@ func TestVae(t *testing.T) {
 		decoderModel := decoder.GetParameters("Decoder")
 
 		count := 0
-		ma_d := NewMovingAverage(50)
+		ma_cost := NewMovingAverage(50)
+		ma_mean := NewMovingAverage(50)
+		ma_dev := NewMovingAverage(150)
 		//batch_size := 8
-
-		max_len := 32
 
 		var e_steps, d_steps float32
 		learning_rate := float32(0.001)
 		anneal_rate := float32(0.999)
 		batch_size := 16
-		CharSampleVisitor(trainFile, 10, CharSplitter{}, dic, func(x []uint) {
-			if len(x) > max_len {
-				return
-			}
+		CharSampleVisitor(trainFile, 1, CharSplitter{}, dic, func(epoch int, x []uint) {
 			// read sample
 			sample := ""
 			for i := range x {
@@ -68,9 +64,10 @@ func TestVae(t *testing.T) {
 				embedding := G.Lookup(LookupTable, int(x[i]))
 				ht, ct = encoder.Step(G, embedding, ht, ct)
 			}
-			distribution, mean, dev := vae.Step(G, ct)
+			distribution, mean, logvar := vae.Step(G, ct)
+			// estimate KLD
+			kld := vae.KLD(G,mean,logvar)
 			// decode sequence from z
-
 			var logit *Matrix
 			cost := float32(0)
 
@@ -100,18 +97,22 @@ func TestVae(t *testing.T) {
 			//if count > 0 && count%batch_size == 0 {
 			//d_cost /= d_steps
 			//g_cost /= g_steps
-			ma_d.Add(cost)
+			ma_cost.Add(cost)
+			m, v := Moments(distribution)
+			ma_mean.Add(m)
+			ma_dev.Add(float32(math.Sqrt(float64(v))))
 			//if sample != decoded {
 			//}
-			avg_cost := ma_d.Avg()
+			avg_cost := ma_cost.Avg()
+			avg_mean := ma_mean.Avg()
+			avg_dev := ma_dev.Avg()
 			if count%150 == 0 {
 				fmt.Printf("\ndecoded: [%s]\n", decoded)
 				fmt.Printf("encoded: [%s]\n", sample)
-				fmt.Printf("step: %d loss: %f lr: %f\n", count, avg_cost, learning_rate)
-				fmt.Printf("dev: %f mean: %f\n", assembler.L1(dev.W), assembler.L1(mean.W))
-				fmt.Printf("dev: %#v\n", dev.W[:10])
-				mid, miv := MaxIV(dev)
-				fmt.Printf("dev: %d %f\n", mid, miv)
+				fmt.Printf("epoch: %d step: %d loss: %f lr: %f\n", epoch, count, avg_cost, learning_rate)
+				fmt.Printf("mean: %f dev: %f kld: %f\n", avg_mean, avg_dev, kld)
+				fmt.Printf("dev: %#v\n", logvar.W[:10])
+
 				learning_rate = learning_rate * anneal_rate
 			}
 			/*

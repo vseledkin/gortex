@@ -7,11 +7,12 @@ import (
 	"fmt"
 )
 
-func CharSampleVisitor(file string, minLen uint, tokenizer Tokenizer, dictionary *Dictionary, visitor func(sample []uint)) error {
+func CharSampleVisitor(file string, minLen uint, tokenizer Tokenizer, dictionary *Dictionary, visitor func(epoch int, sample []uint)) error {
 	f, e := os.Open(file)
 	if e != nil {
 		return e
 	}
+	epoch := 0
 	r := bufio.NewReader(f)
 	for {
 		line, e := r.ReadString('\n')
@@ -21,6 +22,7 @@ func CharSampleVisitor(file string, minLen uint, tokenizer Tokenizer, dictionary
 			if e != nil {
 				break
 			}
+			epoch ++
 		}
 		line = strings.TrimSpace(line)
 		if len(line) > 0 {
@@ -30,7 +32,7 @@ func CharSampleVisitor(file string, minLen uint, tokenizer Tokenizer, dictionary
 				sample[i] = dictionary.IDByToken(term)
 			}
 			if len(sample) > int(minLen) {
-				visitor(sample)
+				visitor(epoch, sample)
 			}
 		}
 	}

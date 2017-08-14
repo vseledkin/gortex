@@ -251,7 +251,7 @@ func TestGruRnn(t *testing.T) {
 	batch_size := 16
 	learning_rate := float32(0.001)
 	anneal_rate := float32(0.9999)
-	CharSampleVisitor(trainFile, 10, CharSplitter{}, dic, func(x []uint) {
+	CharSampleVisitor(trainFile, 10, CharSplitter{}, dic, func(epoch int,x []uint) {
 		// map term indexes in dictionary to embedding vectors
 		var x_cost, x_probability float32
 		//fmt.Printf("X:\n")
@@ -426,7 +426,7 @@ func TestMulticoreLSTMTraining(t *testing.T) {
 	var w sync.WaitGroup
 	w.Add(1)
 	go func() {
-		CharSampleVisitor(trainFile, 10, CharSplitter{}, dic, func(x []uint) {
+		CharSampleVisitor(trainFile, 10, CharSplitter{}, dic, func(epoch int, x []uint) {
 
 			<-license
 			go func(x []uint) {
@@ -603,7 +603,7 @@ func TestAdvRnnTextGenerator(t *testing.T) {
 	learning_rate := float32(0.001)
 	anneal_rate := float32(0.9999)
 	//z := RandMat(z_size, 1)
-	CharSampleVisitor(trainFile, 10, CharSplitter{}, dic, func(x []uint) {
+	CharSampleVisitor(trainFile, 10, CharSplitter{}, dic, func(epoch int, x []uint) {
 		if len(x) > max_len {
 			return
 		}
@@ -815,7 +815,7 @@ func TestAutoencoder(t *testing.T) {
 	learning_rate := float32(0.001)
 	anneal_rate := float32(0.999)
 
-	CharSampleVisitor(trainFile, 10, CharSplitter{}, dic, func(x []uint) {
+	CharSampleVisitor(trainFile, 10, CharSplitter{}, dic, func(epoch int, x []uint) {
 		if len(x) > max_len {
 			return
 		}

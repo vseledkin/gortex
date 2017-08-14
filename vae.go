@@ -57,16 +57,25 @@ func (vae *VAE) SetParameters(namespace string, parameters map[string]*Matrix) e
 	return nil
 }
 
-func (vae *VAE) Step(g *Graph, x *Matrix) (sample, mean, dev *Matrix) {
+func (vae *VAE) Step(g *Graph, x *Matrix) (sample, mean, logvar *Matrix) {
 	// make VAE computation graph
-	//println("x", x.Rows, x.Columns)
-	//println("B", vae.B.Rows, vae.B.Columns)
 	xz := g.Tanh(g.Add(g.Mul(vae.W, x), vae.B))
 	mean = g.Add(g.Mul(vae.WM, xz), vae.BM)
-	dev = g.Softmax(g.Add(g.Mul(vae.WD, xz), vae.BD)) // must be positive
+	logvar = g.Add(g.Mul(vae.WD, xz), vae.BD)
 	// sample random vector from normal 0 1 distribution
 	eps := RandMat(vae.z_size, 1)
 	// sample exemplar from generated distribution
-	sample = g.Add(mean, g.EMul(dev, eps))
+	sample = g.Add(mean, g.EMul(g.Exp(g.MulConstant(0.5, logvar)), eps))
 	return
+}
+
+func (vae *VAE) KLD(g *Graph, mean, logvar *Matrix) float32 {
+	// make VAE computation graph
+	kld := g.MulConstant(-0.5, g.Sum(g.Sub(g.Sub(g.AddConstant(1.0, logvar), g.EMul(mean, mean)), g.Exp(logvar))))
+	if g.NeedsBackprop {
+		g.backprop = append(g.backprop, func() {
+			kld.DW[0] = kld.W[0]
+		})
+	}
+	return kld.W[0]
 }
