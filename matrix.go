@@ -2,6 +2,7 @@ package gortex
 
 import (
 	"fmt"
+	"github.com/vseledkin/gortex/assembler"
 	"math"
 	"math/rand"
 )
@@ -31,17 +32,13 @@ func (m *Matrix) ZerosAs() (mm *Matrix) {
 
 func (m *Matrix) OnesAs() (mm *Matrix) {
 	mm = Mat(m.Rows, m.Columns)
-	for i := range mm.W {
-		mm.W[i] = 1.0
-	}
+	assembler.Sset(1.0, mm.W)
 	return
 }
 
 func (m *Matrix) ConstantAs(c float32) (mm *Matrix) {
 	mm = Mat(m.Rows, m.Columns)
-	for i := range mm.W {
-		mm.W[i] = c
-	}
+	assembler.Sset(c, mm.W)
 	return
 }
 
@@ -95,27 +92,11 @@ func (m *Matrix) AddGradient(row, col int, v float32) {
 }
 
 func (m *Matrix) NormGradient() float32 {
-	var val float32
-	for i := range m.DW {
-		if m.DW[i] < 0 {
-			val -= m.DW[i]
-		} else {
-			val += m.DW[i]
-		}
-	}
-	return val / float32(len(m.DW))
+	return assembler.L1(m.DW) / float32(len(m.DW))
 }
 
 func (m *Matrix) Norm() float32 {
-	var val float32
-	for i := range m.W {
-		if m.W[i] < 0 {
-			val -= m.W[i]
-		} else {
-			val += m.W[i]
-		}
-	}
-	return val / float32(len(m.W))
+	return assembler.L1(m.W) / float32(len(m.W))
 }
 
 func MatFromSlice(w [][]float32) *Matrix {

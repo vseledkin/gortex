@@ -8,8 +8,10 @@ import (
 
 	"math"
 
-	"github.com/gizak/termui"
+	"encoding/json"
 	"github.com/vseledkin/gortex/assembler"
+	"io/ioutil"
+	"os"
 )
 
 func TestWordVae(t *testing.T) {
@@ -23,8 +25,8 @@ func TestWordVae(t *testing.T) {
 	hidden_size := 128
 	embedding_size := 128
 	z_size := 128
-	fmt.Printf("Dictionary has %d tokens\n", dic.Len())
 	fmt.Printf("%s\n", dic)
+	fmt.Printf("Dictionary has %d tokens\n", dic.Len())
 
 	s := NewSolver()                                  // the Solver uses RMSPROP
 	LookupTable := RandMat(embedding_size, dic.Len()) // Lookup Table matrix
@@ -91,9 +93,9 @@ func TestWordVae(t *testing.T) {
 		if count%batch_size == 0 && count > 0 {
 			//ScaleGradient(encoderModel, 1/e_steps)
 			//ScaleGradient(decoderModel, 1/d_steps)
-			s.Step(encoderModel, learning_rate, 0.00001, 5.0)
-			s.Step(vaeModel, learning_rate, 0.00001, 0.0)
 			s.Step(decoderModel, learning_rate, 0.00001, 5.0)
+			s.Step(vaeModel, learning_rate, 0.00001, 0.0)
+			s.Step(encoderModel, learning_rate, 0.00001, 5.0)
 			d_steps = 0
 			e_steps = 0
 		}
@@ -113,15 +115,28 @@ func TestWordVae(t *testing.T) {
 		avg_cost := ma_cost.Avg()
 		avg_mean := ma_mean.Avg()
 		avg_dev := ma_dev.Avg()
+
 		if count%500 == 0 {
+
 			fmt.Printf("\ndecoded: [%s]\n", decoded)
 			fmt.Printf("encoded: [%s]\n", sample)
 			fmt.Printf("epoch: %d step: %d loss: %f lr: %f kld_scale: %f\n", epoch, count, avg_cost, learning_rate, kld_scale)
 			fmt.Printf("mean: %f dev: %f kld: %f\n", avg_mean, avg_dev, ma_kld_cost.Avg())
 			fmt.Printf("dev: %#v\n", dev.W[:10])
 			learning_rate = learning_rate * anneal_rate
-			if avg_cost < 2.0 {
-				kld_scale += 0.000001
+			if avg_cost < 2.0 && kld_scale < 1.0 {
+				f, e := os.Open("kld.json")
+				if e != nil {
+					t.Error(e)
+				}
+				cob, e := ioutil.ReadAll(f)
+				if e != nil {
+					t.Error(e)
+				}
+				var co struct{ GateInc float32 }
+				json.Unmarshal(cob, &co)
+				f.Close()
+				kld_scale += co.GateInc
 			}
 			// interpolate between two pints
 			z1 := RandMat(vae.z_size, 1)
@@ -145,5 +160,4 @@ func TestWordVae(t *testing.T) {
 
 	})
 
-	termui.Loop()
 }
