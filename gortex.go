@@ -260,3 +260,16 @@ func F1Score(trueLabels, predictedLabels []uint, str []string, excludes map[uint
 	F /= denominator
 	return F, message
 }
+
+func SetParameters(dest, parameters map[string]*Matrix) error {
+	for k, v := range dest {
+		fmt.Printf("Look for %s parameters\n", k)
+		if m, ok := parameters[k]; ok {
+			fmt.Printf("Got %s parameters\n", k)
+			copy(v.W, m.W)
+		} else {
+			return fmt.Errorf("Model geometry is not compatible, parameter %s is unknown", k)
+		}
+	}
+	return nil
+}

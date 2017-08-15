@@ -1,21 +1,19 @@
 package gortex
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"math"
 	"math/rand"
+	"os"
 	"testing"
 	"time"
-
-	"math"
-
-	"encoding/json"
-	"io/ioutil"
-	"os"
 
 	"github.com/vseledkin/gortex/assembler"
 )
 
-func TestCharVae(t *testing.T) {
+func TestBabiChallemge(t *testing.T) {
 	// maintain random seed
 	rand.Seed(time.Now().UnixNano())
 	trainFile := "100000_32.txt"
