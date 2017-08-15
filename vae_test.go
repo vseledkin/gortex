@@ -51,7 +51,7 @@ func TestCharVae(t *testing.T) {
 
 	var e_steps, d_steps float32
 	learning_rate := float32(0.001)
-	anneal_rate := float32(0.9999)
+
 	batch_size := 16
 	kld_scale := float32(0.000001)
 	CharSampleVisitor(trainFile, 1, CharSplitter{}, dic, func(epoch int, x []uint) {
@@ -122,8 +122,8 @@ func TestCharVae(t *testing.T) {
 			fmt.Printf("epoch: %d step: %d loss: %f lr: %f kld_scale: %f\n", epoch, count, avg_cost, learning_rate, kld_scale)
 			fmt.Printf("mean: %f dev: %f kld: %f\n", avg_mean, avg_dev, ma_kld_cost.Avg())
 			fmt.Printf("dev: %#v\n", dev.W[:10])
-			learning_rate = learning_rate * anneal_rate
-			if avg_cost < 2.0 && kld_scale < 1.0 {
+
+			if avg_cost < 0.2 && kld_scale < 1.0 {
 				f, e := os.Open("kld_ch.json")
 				if e != nil {
 					t.Error(e)
@@ -132,10 +132,11 @@ func TestCharVae(t *testing.T) {
 				if e != nil {
 					t.Error(e)
 				}
-				var co struct{ GateInc float32 }
+				var co struct{ GateInc, Lr float32 }
 				json.Unmarshal(cob, &co)
 				f.Close()
 				kld_scale += co.GateInc
+				learning_rate = co.Lr
 			}
 			// interpolate between two pints
 			z1 := RandMat(vae.z_size, 1)
