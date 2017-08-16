@@ -2,11 +2,15 @@ package gortex
 
 import (
 	"fmt"
-	"github.com/vseledkin/gortex/assembler"
 	"math"
+	"sync"
+
+	"github.com/vseledkin/gortex/assembler"
 )
 
 const epsilon = 1e-9
+
+var mux sync.Mutex
 
 type Graph struct {
 	NeedsBackprop bool
@@ -20,7 +24,9 @@ type Graph struct {
 
 func (g *Graph) Backward() {
 	for i := len(g.backprop) - 1; i >= 0; i-- {
+		//mux.Lock()
 		g.backprop[i]() // tick!
+		//mux.Unlock()
 	}
 }
 

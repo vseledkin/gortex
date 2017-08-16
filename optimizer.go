@@ -30,12 +30,14 @@ type OpOp struct {
 	Eps          float32 // used by adadelta and adam
 	Beta1        float32 // used by adam
 	Beta2        float32 // used by adam
+	Clip         float32 // used by all
 	Method       OpMethod
 }
 
 type OpRet struct {
-	L1Loss float32
-	L2Loss float32
+	L1Loss     float32
+	L2Loss     float32
+	NumClipped int
 }
 
 type Optimizer struct {
@@ -100,27 +102,51 @@ func (o *Optimizer) setPreviousWeight(name string, w []float32) {
 	o.PreviousWeight[name] = w
 }
 
+func (o *Optimizer) clip(w []float32) int {
+	var num_clipped int
+	// gradient clip
+	for i := range w {
+		if w[i] > o.Clip {
+			w[i] = o.Clip
+			num_clipped++
+			continue
+		}
+		if w[i] < -o.Clip {
+			w[i] = -o.Clip
+			num_clipped++
+		}
+	}
+	return num_clipped
+}
+
 func (o *Optimizer) Step(model map[string]*Matrix) OpRet {
 	ret := OpRet{}
 	// make method specific weight optimization
 	o.Iteration++
 	for name, m := range model {
+		if o.Clip > 0 {
+			ret.NumClipped += o.clip(m.DW)
+		}
 		switch o.Method {
 		case RMSPROP:
 			xsumi := o.getPreviousWeight(name, m)
+			assembler.Saxplusbyvsetz(o.RmsDecayRate, xsumi, 1-o.RmsDecayRate, m.DW, m.DW, xsumi)
 			for i := range m.W {
-				xsumi[i] = xsumi[i]*o.RmsDecayRate + (1.0-o.RmsDecayRate)*m.DW[i]*m.DW[i]
 				m.W[i] += -o.LearningRate * m.DW[i] / Sqrt(xsumi[i]+o.Eps)
 			}
 		case ADAM:
 			gsumi := o.getPreviousGradient(name, m)
 			xsumi := o.getPreviousWeight(name, m)
+			assembler.Saxplusbysetz(o.Beta1, gsumi, 1-o.Beta1, m.DW, gsumi)        // update biased first moment estimate
+			assembler.Saxplusbyvsetz(o.Beta2, xsumi, 1-o.Beta2, m.DW, m.DW, xsumi) // update biased second moment estimate
+			beta1iteration := (1 - Pow(o.Beta1, o.Iteration))
+			beta2iteration := (1 - Pow(o.Beta2, o.Iteration))
+			biasCorr1 := make([]float32, m.Numel())
+			biasCorr2 := make([]float32, m.Numel())
+			assembler.Saxpy(beta1iteration, gsumi, biasCorr1) // correct bias first moment estimate
+			assembler.Saxpy(beta2iteration, xsumi, biasCorr2) // correct bias second moment estimate
 			for i := range m.W {
-				gsumi[i] = gsumi[i]*o.Beta1 + (1-o.Beta1)*m.DW[i]         // update biased first moment estimate
-				xsumi[i] = xsumi[i]*o.Beta2 + (1-o.Beta2)*m.DW[i]*m.DW[i] // update biased second moment estimate
-				biasCorr1 := gsumi[i] * (1 - Pow(o.Beta1, o.Iteration))   // correct bias first moment estimate
-				biasCorr2 := xsumi[i] * (1 - Pow(o.Beta2, o.Iteration))   // correct bias second moment estimate
-				m.W[i] += -o.LearningRate * biasCorr1 / (Sqrt(biasCorr2) + o.Eps)
+				m.W[i] += -o.LearningRate * biasCorr1[i] / (Sqrt(biasCorr2[i]) + o.Eps)
 			}
 		case ADAGRAD:
 			gsumi := o.getPreviousGradient(name, m)
@@ -132,15 +158,15 @@ func (o *Optimizer) Step(model map[string]*Matrix) OpRet {
 			// this is adagrad but with a moving window weighted average
 			// so the gradient is not accumulated over the entire history of the run.
 			gsumi := o.getPreviousGradient(name, m)
+			assembler.Saxplusbyvsetz(o.Ro, gsumi, 1-o.Ro, m.DW, m.DW, gsumi)
 			for i := range m.W {
-				gsumi[i] = o.Ro*gsumi[i] + (1-o.Ro)*m.DW[i]*m.DW[i]
 				m.W[i] += -o.LearningRate * m.DW[i] / Sqrt(gsumi[i]+o.Eps)
 			}
 		case ADADELTA:
 			gsumi := o.getPreviousGradient(name, m)
 			xsumi := o.getPreviousWeight(name, m)
+			assembler.Saxplusbyvsetz(o.Ro, gsumi, 1-o.Ro, m.DW, m.DW, gsumi)
 			for i := range m.W {
-				gsumi[i] = o.Ro*gsumi[i] + (1-o.Ro)*m.DW[i]*m.DW[i]
 				dx := -Sqrt((xsumi[i]+o.Eps)/(gsumi[i]+o.Eps)) * m.DW[i]
 				xsumi[i] = o.Ro*xsumi[i] + (1-o.Ro)*dx*dx
 				m.W[i] += dx
@@ -149,10 +175,10 @@ func (o *Optimizer) Step(model map[string]*Matrix) OpRet {
 			dx := o.getPreviousGradient(name, m)
 			gsumi := make([]float32, m.Numel())
 			assembler.Saxplusbysetz(o.Momentum, dx, o.LearningRate, m.DW, gsumi)
-			assembler.Saxplusbyplusz(o.Momentum, dx, -(1.0 + o.Momentum), gsumi, m.W)
+			assembler.Saxplusbyplusz(o.Momentum, dx, -(1 + o.Momentum), gsumi, m.W)
 			o.setPreviousGradient(name, gsumi)
 		case SGD:
-			if o.Momentum > 0.0 {
+			if o.Momentum > 0 {
 				dx := o.getPreviousGradient(name, m)
 				assembler.Saxplusbysetz(o.Momentum, dx, -o.LearningRate, m.DW, dx)
 				// apply corrected gradient
@@ -170,5 +196,6 @@ func (o *Optimizer) Step(model map[string]*Matrix) OpRet {
 	for _, m := range model {
 		assembler.Sclean(m.DW)
 	}
+
 	return ret
 }

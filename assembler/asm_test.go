@@ -173,3 +173,28 @@ func TestSaxplusbyplusz(t *testing.T) {
 		}
 	}
 }
+
+func TestSaxplusbyvsetz(t *testing.T) {
+
+	x := make([]float32, 10000)
+	y := make([]float32, 10000)
+	v := make([]float32, 10000)
+	z1 := make([]float32, 10000)
+	z2 := make([]float32, 10000)
+	a := rand.Float32()
+	b := rand.Float32()
+	for i := range x {
+		x[i] = rand.Float32()
+		y[i] = rand.Float32()
+		v[i] = rand.Float32()
+	}
+	for i := 1; i < 10000; i++ {
+		saxplusbyvsetz(a, x[:i], b, y[:i], v[:i], z1[:i])
+		Saxplusbyvsetz(a, x[:i], b, y[:i], v[:i], z2[:i])
+		for j := 0; j < i; j++ {
+			if z1[j] != z2[j] {
+				t.Fatalf("Experiment %d values do not match want %f got %f in vector of length %d\n", i, z1[j], z2[j], len(z2[:i]))
+			}
+		}
+	}
+}
