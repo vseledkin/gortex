@@ -24,7 +24,11 @@ func Abs(f float32) float32 {
 }
 
 func Sqrt(x float32) float32 {
-	return float32(math.Sqrt(float64((x))))
+	return float32(math.Sqrt(float64(x)))
+}
+
+func Pow(x, y float32) float32 {
+	return float32(math.Pow(float64(x), float64(y)))
 }
 
 func Zeros(n int) []float32 {
@@ -263,9 +267,7 @@ func F1Score(trueLabels, predictedLabels []uint, str []string, excludes map[uint
 
 func SetParameters(dest, parameters map[string]*Matrix) error {
 	for k, v := range dest {
-		fmt.Printf("Look for %s parameters\n", k)
 		if m, ok := parameters[k]; ok {
-			fmt.Printf("Got %s parameters\n", k)
 			copy(v.W, m.W)
 		} else {
 			return fmt.Errorf("Model geometry is not compatible, parameter %s is unknown", k)

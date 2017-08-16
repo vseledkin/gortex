@@ -38,7 +38,7 @@ func TestCharVae(t *testing.T) {
 	fmt.Printf("%s\n", dic)
 	fmt.Printf("Dictionary has %d tokens\n", dic.Len())
 
-	optimizer := NewOptimizer(OpOp{Method: WINDOWGRAD, LearningRate: 0.001, Momentum: DefaultMomentum})
+	optimizer := NewOptimizer(OpOp{Method: NETSTEROV, LearningRate: 0.001, Momentum: DefaultMomentum})
 	LookupTable := RandMat(embedding_size, dic.Len()) // Lookup Table matrix
 	encoder := MakeOutputlessLSTM(embedding_size, hidden_size)
 	encoder.ForgetGateTrick(2.0)
