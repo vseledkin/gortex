@@ -1,5 +1,5 @@
-//func sxmulely_asm(X []float32, Y []float32)
-TEXT ·sxmulely_asm(SB), 7, $0
+//func sxmuley_asm(X []float32, Y []float32)
+TEXT ·sxmuley_asm(SB), 7, $0
 	MOVQ	X_data+0(FP), SI
 	MOVQ	X_len+8(FP), BP
 	MOVQ	Y_data+24(FP), DI

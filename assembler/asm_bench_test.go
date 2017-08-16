@@ -31,7 +31,6 @@ func BenchmarkOptimizedSscale(b *testing.B) { //benchmark function starts with "
 	}
 }
 
-
 func BenchmarkSset(b *testing.B) { //benchmark function starts with "Benchmark" and takes a pointer to type testing.B
 	b.StopTimer()
 
@@ -193,5 +192,77 @@ func BenchmarkOptimizedSclean(b *testing.B) { //benchmark function starts with "
 	b.StartTimer() //restart timer
 	for i := 0; i < b.N; i++ {
 		Sclean(x)
+	}
+}
+
+func BenchmarkSaxplusbysetz(tb *testing.B) { //benchmark function starts with "Benchmark" and takes a pointer to type testing.B
+	tb.StopTimer()
+
+	x := make([]float32, 10000)
+	y := make([]float32, 10000)
+	z := make([]float32, 10000)
+	a := rand.Float32()
+	b := rand.Float32()
+	for i := range x {
+		x[i] = rand.Float32()
+		y[i] = rand.Float32()
+	}
+	tb.StartTimer() //restart timer
+	for i := 0; i < tb.N; i++ {
+		saxplusbysetz(a, x, b, y, z)
+	}
+}
+
+func BenchmarkOptimizedSaxplusbysetz(tb *testing.B) { //benchmark function starts with "Benchmark" and takes a pointer to type testing.B
+	tb.StopTimer()
+
+	x := make([]float32, 10000)
+	y := make([]float32, 10000)
+	z := make([]float32, 10000)
+	a := rand.Float32()
+	b := rand.Float32()
+	for i := range x {
+		x[i] = rand.Float32()
+		y[i] = rand.Float32()
+	}
+	tb.StartTimer() //restart timer
+	for i := 0; i < tb.N; i++ {
+		Saxplusbysetz(a, x, b, y, z)
+	}
+}
+
+func BenchmarkSaxplusbyplusz(tb *testing.B) { //benchmark function starts with "Benchmark" and takes a pointer to type testing.B
+	tb.StopTimer()
+
+	x := make([]float32, 10000)
+	y := make([]float32, 10000)
+	z := make([]float32, 10000)
+	a := rand.Float32()
+	b := rand.Float32()
+	for i := range x {
+		x[i] = rand.Float32()
+		y[i] = rand.Float32()
+	}
+	tb.StartTimer() //restart timer
+	for i := 0; i < tb.N; i++ {
+		saxplusbyplusz(a, x, b, y, z)
+	}
+}
+
+func BenchmarkOptimizedSaxplusbyplusz(tb *testing.B) { //benchmark function starts with "Benchmark" and takes a pointer to type testing.B
+	tb.StopTimer()
+
+	x := make([]float32, 10000)
+	y := make([]float32, 10000)
+	z := make([]float32, 10000)
+	a := rand.Float32()
+	b := rand.Float32()
+	for i := range x {
+		x[i] = rand.Float32()
+		y[i] = rand.Float32()
+	}
+	tb.StartTimer() //restart timer
+	for i := 0; i < tb.N; i++ {
+		Saxplusbyplusz(a, x, b, y, z)
 	}
 }

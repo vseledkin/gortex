@@ -99,6 +99,10 @@ func (m *Matrix) Norm() float32 {
 	return assembler.L1(m.W) / float32(len(m.W))
 }
 
+func (m *Matrix) Numel() int {
+	return len(m.W)
+}
+
 func MatFromSlice(w [][]float32) *Matrix {
 	M := new(Matrix)
 	M.Rows = len(w)

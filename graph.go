@@ -90,7 +90,7 @@ func (g *Graph) Lookup(lt *Matrix, i int) *Matrix {
 	out := Mat(lt.Rows, 1)
 	offset := i * lt.Rows
 	// we can point to region in slice instead of copy
-	out.W = lt.W[offset: offset+lt.Rows]
+	out.W = lt.W[offset : offset+lt.Rows]
 
 	if g.NeedsBackprop {
 		g.backprop = append(g.backprop, func() {
@@ -257,6 +257,7 @@ func (g *Graph) Mul(m1, m2 *Matrix, messages ...string) *Matrix {
 	}
 	return out
 }
+
 // Sum of weights of x
 func (g *Graph) Sum(x *Matrix) *Matrix {
 	out := Mat(x.Rows, x.Columns)
@@ -303,7 +304,7 @@ func (g *Graph) Exp(x *Matrix) *Matrix {
 	}
 	if g.NeedsBackprop {
 		g.backprop = append(g.backprop, func() {
-			assembler.Sxmulelyplusz(out.DW, out.W, x.DW)
+			assembler.Sxmuleyplusz(out.DW, out.W, x.DW)
 		})
 	}
 	return out
@@ -323,12 +324,12 @@ func (g *Graph) EMul(m1, m2 *Matrix, messages ...string) *Matrix {
 	}
 	*/
 	out := m1.CopyAs()
-	assembler.Sxmulely(m2.W, out.W)
+	assembler.Sxmuley(m2.W, out.W)
 
 	if g.NeedsBackprop {
 		g.backprop = append(g.backprop, func() {
-			assembler.Sxmulelyplusz(m2.W, out.DW, m1.DW)
-			assembler.Sxmulelyplusz(m1.W, out.DW, m2.DW)
+			assembler.Sxmuleyplusz(m2.W, out.DW, m1.DW)
+			assembler.Sxmuleyplusz(m1.W, out.DW, m2.DW)
 			//for i := range m1.W {
 			//	m1.DW[i] += m2.W[i] * out.DW[i]
 			//	m2.DW[i] += m1.W[i] * out.DW[i]

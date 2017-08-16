@@ -38,7 +38,7 @@ func TestCharVae(t *testing.T) {
 	fmt.Printf("%s\n", dic)
 	fmt.Printf("Dictionary has %d tokens\n", dic.Len())
 
-	s := NewSolver()                                  // the Solver uses RMSPROP
+	optimizer := NewOptimizer(OpOp{Method: WINDOWGRAD, LearningRate: 0.001, Momentum: DefaultMomentum})
 	LookupTable := RandMat(embedding_size, dic.Len()) // Lookup Table matrix
 	encoder := MakeOutputlessLSTM(embedding_size, hidden_size)
 	encoder.ForgetGateTrick(2.0)
@@ -79,7 +79,6 @@ func TestCharVae(t *testing.T) {
 	//batch_size := 8
 
 	var e_steps, d_steps float32
-	learning_rate := float32(0.001)
 
 	batch_size := 16
 	kld_scale := float32(0.000001)
@@ -122,7 +121,7 @@ func TestCharVae(t *testing.T) {
 		if count%batch_size == 0 && count > 0 {
 			//ScaleGradient(encoderModel, 1/e_steps)
 			//ScaleGradient(decoderModel, 1/d_steps)
-			s.Step(model, learning_rate, 0.00001, 5.0)
+			optimizer.Step(model)
 			d_steps = 0
 			e_steps = 0
 		}
@@ -151,7 +150,7 @@ func TestCharVae(t *testing.T) {
 
 			fmt.Printf("\ndecoded: [%s]\n", decoded)
 			fmt.Printf("encoded: [%s]\n", sample)
-			fmt.Printf("epoch: %d step: %d loss: %f lr: %f kld_scale: %f\n", epoch, count, avg_cost, learning_rate, kld_scale)
+			fmt.Printf("epoch: %d step: %d loss: %f lr: %f kld_scale: %f\n", epoch, count, avg_cost, optimizer.LearningRate, kld_scale)
 			fmt.Printf("mean: %f dev: %f kld: %f\n", avg_mean, avg_dev, ma_kld_cost.Avg())
 			fmt.Printf("dev: %#v\n", dev.W[:10])
 
@@ -168,7 +167,7 @@ func TestCharVae(t *testing.T) {
 				json.Unmarshal(cob, &co)
 				f.Close()
 				kld_scale += co.GateInc
-				learning_rate = co.Lr
+				optimizer.LearningRate = co.Lr
 			}
 			// interpolate between two pints
 			z1 := RandMat(vae.z_size, 1)
@@ -189,21 +188,5 @@ func TestCharVae(t *testing.T) {
 				fmt.Printf("%0.2f sentence: %s\n", a, decoded)
 			}
 		}
-		/*
-			if count%100 == 0 { // print some model generated text
-				learning_rate = learning_rate * anneal_rate
-				// sample noise
-				//z := RandMat(z_size, 1)
-				fmt.Printf("MODEL GENERATED TEXT: ")
-				G := Graph{NeedsBackprop: false}
-				ht := Mat(g_hidden_size, 1) // vector of zeros
-				var logit *Matrix
-				for i := 0; i < max_len; i++ {
-					ht, logit = generator.Step(&G, z, ht)
-					term_id, _ := MaxIV(Softmax(logit))
-					fmt.Printf("%s", dic.TokenByID(term_id))
-				}
-				fmt.Printf("\n")
-			}*/
 	})
 }

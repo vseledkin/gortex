@@ -186,7 +186,7 @@ func TestOptimizationWithCrossentropySGD(t *testing.T) {
 	target := uint(4)
 
 	// make optimizer
-	s := NewSGDSolver() // the Solver uses SGD
+	s := NewOptimizer(OpOp{Method: SGD, LearningRate: 0.0001}) // the Solver uses SGD
 
 	// update W and b, use learning rate of 0.01,
 	// regularization strength of 0.0001 and clip gradient magnitudes at 5.0
@@ -207,7 +207,7 @@ func TestOptimizationWithCrossentropySGD(t *testing.T) {
 		// compute gradients
 		G.Backward()
 		// update model weights
-		s.Step(model, 0.03)
+		s.Step(model)
 		// print error
 	}
 	G := Graph{}

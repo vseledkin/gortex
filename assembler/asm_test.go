@@ -1,7 +1,6 @@
 package assembler
 
 import (
-
 	"math/rand"
 	"testing"
 )
@@ -25,8 +24,6 @@ func TestSscale(t *testing.T) {
 		}
 	}
 }
-
-
 
 func TestL2(t *testing.T) {
 	for j := 0; j < 100; j++ {
@@ -85,7 +82,6 @@ func TestL2squared(t *testing.T) {
 	}
 }
 
-
 func TestSaxpy(t *testing.T) {
 	for j := 0; j < 100; j++ {
 		X := make([]float32, j)
@@ -127,6 +123,52 @@ func TestSset(t *testing.T) {
 			}
 			if X[i] != 2.1 {
 				t.Fatalf("values do not match want %f got %f in vector of length %d\n", 2.1, X1[i], len(X))
+			}
+		}
+	}
+}
+
+func TestSaxplusbysetz(t *testing.T) {
+
+	x := make([]float32, 10000)
+	y := make([]float32, 10000)
+	z1 := make([]float32, 10000)
+	z2 := make([]float32, 10000)
+	a := rand.Float32()
+	b := rand.Float32()
+	for i := range x {
+		x[i] = rand.Float32()
+		y[i] = rand.Float32()
+	}
+	for i := 1; i < 10000; i++ {
+		saxplusbysetz(a, x[:i], b, y[:i], z1[:i])
+		Saxplusbysetz(a, x[:i], b, y[:i], z2[:i])
+		for j := 0; j < i; j++ {
+			if z1[j] != z2[j] {
+				t.Fatalf("Experiment %d values do not match want %f got %f in vector of length %d\n", i, z1[j], z2[j], len(z2[:i]))
+			}
+		}
+	}
+}
+
+func TestSaxplusbyplusz(t *testing.T) {
+
+	x := make([]float32, 10000)
+	y := make([]float32, 10000)
+	z1 := make([]float32, 10000)
+	z2 := make([]float32, 10000)
+	a := rand.Float32()
+	b := rand.Float32()
+	for i := range x {
+		x[i] = rand.Float32()
+		y[i] = rand.Float32()
+	}
+	for i := 1; i < 10000; i++ {
+		saxplusbyplusz(a, x[:i], b, y[:i], z1[:i])
+		Saxplusbyplusz(a, x[:i], b, y[:i], z2[:i])
+		for j := 0; j < i; j++ {
+			if z1[j] != z2[j] {
+				t.Fatalf("Experiment %d values do not match want %f got %f in vector of length %d\n", i, z1[j], z2[j], len(z2[:i]))
 			}
 		}
 	}
