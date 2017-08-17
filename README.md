@@ -28,7 +28,7 @@ func main() {
 	modelParameters := map[string]*g.Matrix{"A": A, "B": B}
 	// optimizer
 	optimizer := g.NewOptimizer(g.OpOp{Method: g.SGD, LearningRate: 0.01})
-	epoch, maxEpochs := 0
+	epoch, maxEpochs := 0, 10000
 	for true {
 		cost := float32(0)
 		for i := range X {
