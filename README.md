@@ -44,7 +44,7 @@ func main() {
 
 			optimizer.Step(modelParameters)
 			fmt.Printf("%d Current A*x+B=y %f*%f + %f = %f abs error=%f\n",
-				step, A.Get(0, 0), B.Get(0, 0), x_vector.Get(0, 0), result.Get(0, 0), cost)
+				i, A.Get(0, 0), B.Get(0, 0), x_vector.Get(0, 0), result.Get(0, 0), cost)
 		}
 		cost /= 2 // per sample cost
 		epoch++
