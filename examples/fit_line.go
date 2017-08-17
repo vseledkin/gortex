@@ -1,8 +1,8 @@
 package main
 
 import (
-	g "github.com/vseledkin/gortex"
 	"fmt"
+	g "github.com/vseledkin/gortex"
 )
 
 func main() {
@@ -15,7 +15,7 @@ func main() {
 	modelParameters := map[string]*g.Matrix{"A": A, "B": B}
 	// optimizer
 	optimizer := g.NewOptimizer(g.OpOp{Method: g.SGD, LearningRate: 0.01})
-	epoch, maxEpochs := 0
+	epoch, maxEpochs := 0, 10000
 	for true {
 		cost := float32(0)
 		for i := range X {
@@ -26,16 +26,19 @@ func main() {
 			// construct y=Ax+b model
 			graph := &g.Graph{NeedsBackprop: true}
 			result := graph.Add(graph.Mul(A, x_vector), B)
-			cost += graph.MSE(result, y_vector)
+			currentSampleError := graph.MSE(result, y_vector)
+			cost += currentSampleError
 			graph.Backward()
 
 			optimizer.Step(modelParameters)
-			fmt.Printf("%d Current A*x+B=y %f*%f + %f = %f abs error=%f\n",
-				step, A.Get(0, 0), B.Get(0, 0), x_vector.Get(0, 0), result.Get(0, 0), cost)
+			fmt.Printf("Epoch: %d Sample %d A*x+B=y %f*%f + %f = %f error=%f\n",
+				epoch, i, A.Get(0, 0), x_vector.Get(0, 0), B.Get(0, 0), result.Get(0, 0), currentSampleError)
 		}
 		cost /= 2 // per sample cost
 		epoch++
 		if cost < 1e-4 || epoch == maxEpochs {
+			fmt.Printf("Final loss: %f \n", cost)
+			fmt.Printf("A = %f, B = %f\n", A.Get(0, 0), B.Get(0, 0))
 			break
 		}
 	}
