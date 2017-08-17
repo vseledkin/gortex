@@ -1,0 +1,42 @@
+package main
+
+import (
+	g "github.com/vseledkin/gortex"
+	"fmt"
+)
+
+func main() {
+	// train data two pints
+	X := []float32{1, 0}
+	Y := []float32{1, 2}
+	// model parameters
+	A := g.RandMat(1, 1)
+	B := g.RandMat(1, 1)
+	modelParameters := map[string]*g.Matrix{"A": A, "B": B}
+	// optimizer
+	optimizer := g.NewOptimizer(g.OpOp{Method: g.SGD, LearningRate: 0.01})
+	epoch, maxEpochs := 0
+	for true {
+		cost := float32(0)
+		for i := range X {
+			y_vector := g.Mat(1, 1)
+			y_vector.Set(0, 0, Y[i])
+			x_vector := g.Mat(1, 1)
+			x_vector.Set(0, 0, X[i])
+			// construct Ax+b model
+			graph := &g.Graph{NeedsBackprop: true}
+			result := graph.Add(graph.Mul(A, x_vector), B)
+			cost += graph.MSE(result, y_vector)
+			graph.Backward()
+
+			optimizer.Step(modelParameters)
+			fmt.Printf("%d Current A*x+B=y %f*%f + %f = %f abs error=%f\n",
+				step, A.Get(0, 0), B.Get(0, 0), x_vector.Get(0, 0), result.Get(0, 0), cost)
+		}
+		cost /= 2 // per sample cost
+		epoch++
+		if cost < 1e-4 || epoch == maxEpochs {
+			break
+		}
+	}
+}

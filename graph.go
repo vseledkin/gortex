@@ -384,7 +384,7 @@ func (g *Graph) Concat(m ...*Matrix) *Matrix {
 	}
 	return out
 }
-
+//MSE mean square error loss function
 func (g *Graph) MSE(m1, t *Matrix) float32 {
 	l1 := len(m1.W)
 	l2 := len(t.W)
@@ -411,7 +411,7 @@ func (g *Graph) MSE(m1, t *Matrix) float32 {
 	return mse
 }
 
-//Crossentropy takes logits vector and list of label id
+//Crossentropy loss function takes logits vector and list of label ids
 func (g *Graph) Crossentropy(m1 *Matrix, label uint) (cost, probability float32) {
 
 	if label >= uint(len(m1.W)) {
