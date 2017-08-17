@@ -68,6 +68,14 @@ func main() {
 
 
 ```
+## How to run Example:
+    On MacOS:
+        1. [Install homebrew](https://docs.brew.sh/Installation.html)
+        2. Install Golang :> brew install go
+        3. Get Gortex package :> go get github.com/vseledkin/gortex
+        4. Save sample to file sample.go
+        5. Run sample :> go run sample.go
+
 ## Warning: Beta
 
 Very beta
