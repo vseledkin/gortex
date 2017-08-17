@@ -131,9 +131,7 @@ func (o *Optimizer) Step(model map[string]*Matrix) OpRet {
 		case RMSPROP:
 			xsumi := o.getPreviousWeight(name, m)
 			assembler.Saxplusbyvsetz(o.RmsDecayRate, xsumi, 1-o.RmsDecayRate, m.DW, m.DW, xsumi)
-			for i := range m.W {
-				m.W[i] += -o.LearningRate * m.DW[i] / Sqrt(xsumi[i]+o.Eps)
-			}
+			assembler.Saxdivsqrteyplusz(-o.LearningRate, m.DW, o.Eps, xsumi, m.W)
 		case ADAM:
 			gsumi := o.getPreviousGradient(name, m)
 			xsumi := o.getPreviousWeight(name, m)
@@ -145,29 +143,23 @@ func (o *Optimizer) Step(model map[string]*Matrix) OpRet {
 			biasCorr2 := make([]float32, m.Numel())
 			assembler.Saxpy(beta1iteration, gsumi, biasCorr1) // correct bias first moment estimate
 			assembler.Saxpy(beta2iteration, xsumi, biasCorr2) // correct bias second moment estimate
-			for i := range m.W {
-				m.W[i] += -o.LearningRate * biasCorr1[i] / (Sqrt(biasCorr2[i]) + o.Eps)
-			}
+			assembler.Saxdivsqrteyplusz(-o.LearningRate, biasCorr1, o.Eps, biasCorr2, m.W)
 		case ADAGRAD:
 			gsumi := o.getPreviousGradient(name, m)
 			assembler.Sxmuleyplusz(m.DW, m.DW, gsumi)
-			for i := range m.W {
-				m.W[i] += -o.LearningRate * m.DW[i] / Sqrt(gsumi[i]+o.Eps)
-			}
+			assembler.Saxdivsqrteyplusz(-o.LearningRate, m.DW, o.Eps, gsumi, m.W)
 		case WINDOWGRAD:
 			// this is adagrad but with a moving window weighted average
 			// so the gradient is not accumulated over the entire history of the run.
 			gsumi := o.getPreviousGradient(name, m)
 			assembler.Saxplusbyvsetz(o.Ro, gsumi, 1-o.Ro, m.DW, m.DW, gsumi)
-			for i := range m.W {
-				m.W[i] += -o.LearningRate * m.DW[i] / Sqrt(gsumi[i]+o.Eps)
-			}
+			assembler.Saxdivsqrteyplusz(-o.LearningRate, m.DW, o.Eps, gsumi, m.W)
 		case ADADELTA:
 			gsumi := o.getPreviousGradient(name, m)
 			xsumi := o.getPreviousWeight(name, m)
 			assembler.Saxplusbyvsetz(o.Ro, gsumi, 1-o.Ro, m.DW, m.DW, gsumi)
 			for i := range m.W {
-				dx := -Sqrt((xsumi[i]+o.Eps)/(gsumi[i]+o.Eps)) * m.DW[i]
+				dx := -assembler.Sqrt((xsumi[i]+o.Eps)/(gsumi[i]+o.Eps)) * m.DW[i]
 				xsumi[i] = o.Ro*xsumi[i] + (1-o.Ro)*dx*dx
 				m.W[i] += dx
 			}

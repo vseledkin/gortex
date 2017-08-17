@@ -1,5 +1,7 @@
 package gortex
 
+import "github.com/vseledkin/gortex/assembler"
+
 type Solver struct {
 	decay_rate float32
 	smooth_eps float32
@@ -44,7 +46,7 @@ func (this *Solver) Step(model map[string]*Matrix, step_size, regc, clipval floa
 			num_tot++
 
 			// update (and regularize)
-			m.W[i] += -step_size*mdwi/Sqrt(s.W[i]+this.smooth_eps) - regc*m.W[i]
+			m.W[i] += -step_size*mdwi/assembler.Sqrt(s.W[i]+this.smooth_eps) - regc*m.W[i]
 			m.DW[i] = 0 // reset gradients for next iteration
 		}
 	}

@@ -32,10 +32,10 @@ func (g *Graph) Backward() {
 
 func (g *Graph) InstanceNormalization(m *Matrix) *Matrix {
 	mean, variance := Moments(m)
-	stdDev := Sqrt(variance)
+	stdDev := assembler.Sqrt(variance)
 	out := m.SameAs()
 	for i := range m.W {
-		out.W[i] = (m.W[i] - mean) / Sqrt(stdDev*stdDev+epsilon)
+		out.W[i] = (m.W[i] - mean) / assembler.Sqrt(stdDev*stdDev+epsilon)
 	}
 	if g.NeedsBackprop {
 
@@ -61,7 +61,7 @@ func (g *Graph) InstanceNormalization(m *Matrix) *Matrix {
 				sum2 += out.DW[i] * (m.W[i] - mean)
 			}
 			for i := range m.W {
-				m.DW[i] += Sqrt(variance+epsilon) / N * (N*out.DW[i] - sum - (m.W[i]-mean)/(variance+epsilon)*sum2)
+				m.DW[i] += assembler.Sqrt(variance+epsilon) / N * (N*out.DW[i] - sum - (m.W[i]-mean)/(variance+epsilon)*sum2)
 			}
 		})
 	}
@@ -78,6 +78,7 @@ func (g *Graph) Tanh(m *Matrix, messages ...string) *Matrix {
 
 	if g.NeedsBackprop {
 		g.backprop = append(g.backprop, func() {
+
 			for i := range m.W {
 				// grad for z = tanh(x) is (1 - z^2)
 				m.DW[i] += (1.0 - out.W[i]*out.W[i]) * out.DW[i]
@@ -119,10 +120,10 @@ func (g *Graph) Softmax(m *Matrix) *Matrix {
 
 	if g.NeedsBackprop {
 		g.backprop = append(g.backprop, func() {
-			//assembler.Sxpy(out.W, m.DW)
-			for i := range m.W {
-				m.DW[i] += out.W[i] * out.DW[i]
-			}
+			assembler.Sxmuleyplusz(out.DW, out.DW, m.DW)
+			//for i := range m.W {
+			//	m.DW[i] += out.W[i] * out.DW[i]
+			//}
 		})
 	}
 	return out
@@ -138,10 +139,11 @@ func (g *Graph) Sigmoid(m *Matrix) *Matrix {
 
 	if g.NeedsBackprop {
 		g.backprop = append(g.backprop, func() {
-			for i := range m.W {
-				// grad for z = sigmoid(x) is sigmoid(x)(1 - sigmoid(x))
-				m.DW[i] += out.W[i] * (1.0 - out.W[i]) * out.DW[i]
-			}
+			// grad for z = sigmoid(x) is sigmoid(x)(1 - sigmoid(x))
+			assembler.Sigmoidbackprop(1, out.W, out.DW, m.DW)
+			//for i := range m.W {
+			//	m.DW[i] += out.W[i] * (1.0 - out.W[i]) * out.DW[i]
+			//}
 		})
 	}
 	return out

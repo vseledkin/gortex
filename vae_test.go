@@ -38,8 +38,8 @@ func TestCharVae(t *testing.T) {
 	fmt.Printf("%s\n", dic)
 	fmt.Printf("Dictionary has %d tokens\n", dic.Len())
 
-	//optimizer := NewOptimizer(OpOp{Method: WINDOWGRAD, LearningRate: 0.001, Momentum: DefaultMomentum})
-	optimizer := NewOptimizer(OpOp{Method: RMSPROP, LearningRate: 0.001, Momentum: DefaultMomentum, Clip: 5})
+	//optimizer := NewOptimizer(OpOp{Method: WINDOWGRAD, LearningRate: 0.001, Momentum: DefaultMomentum, Clip: 5})
+	optimizer := NewOptimizer(OpOp{Method: WINDOWGRAD, LearningRate: 0.0003, Momentum: DefaultMomentum, Clip: 4})
 	LookupTable := RandMat(embedding_size, dic.Len()) // Lookup Table matrix
 	encoder := MakeOutputlessLSTM(embedding_size, hidden_size)
 	encoder.ForgetGateTrick(2.0)
@@ -81,9 +81,9 @@ func TestCharVae(t *testing.T) {
 
 	var e_steps, d_steps float32
 
-	batch_size := 16
-	kld_scale := float32(0.0001)
-	threads := 8
+	batch_size := 32
+	kld_scale := float32(0.0175)
+	threads := 4
 	license := make(chan struct{}, threads)
 	for i := 0; i < threads; i++ {
 		license <- struct{}{}

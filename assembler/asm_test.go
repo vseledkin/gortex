@@ -193,7 +193,64 @@ func TestSaxplusbyvsetz(t *testing.T) {
 		Saxplusbyvsetz(a, x[:i], b, y[:i], v[:i], z2[:i])
 		for j := 0; j < i; j++ {
 			if z1[j] != z2[j] {
-				t.Fatalf("Experiment %d values do not match want %f got %f in vector of length %d\n", i, z1[j], z2[j], len(z2[:i]))
+				t.Fatalf("Experiment %d values do not match want %f got %f in vector of length %d\n",
+					i, z1[j], z2[j], len(z2[:i]))
+			}
+		}
+	}
+}
+
+func TestSaxdivsqrteyplusz(t *testing.T) {
+
+	x := make([]float32, 10000)
+	y := make([]float32, 10000)
+
+	a := rand.Float32()
+	b := rand.Float32() + 1e-1
+	for i := range x {
+		x[i] = rand.Float32()
+		y[i] = Abs(rand.Float32())
+	}
+	for i := 1; i < 10000; i++ {
+		z1 := make([]float32, i)
+		z2 := make([]float32, i)
+		for i := range z1 {
+			z1[i] = rand.Float32()
+			z2[i] = z1[i]
+		}
+		saxdivsqrteyplusz(a, x[:i], b, y[:i], z1[:i])
+		Saxdivsqrteyplusz(a, x[:i], b, y[:i], z2[:i])
+		for j := 0; j < i; j++ {
+			if z1[j] != z2[j] {
+				t.Fatalf("Experiment %d values do not match want %f got %f in vector of length %d\n",
+					i, z1[j], z2[j], len(z2[:i]))
+			}
+		}
+	}
+}
+
+func TestSigmoidbackprop(t *testing.T) {
+
+	x := make([]float32, 10000)
+	y := make([]float32, 10000)
+
+	for i := range x {
+		x[i] = rand.Float32()
+		y[i] = Abs(rand.Float32())
+	}
+	for i := 1; i < 10000; i++ {
+		z1 := make([]float32, i)
+		z2 := make([]float32, i)
+		for i := range z1 {
+			z1[i] = rand.Float32()
+			z2[i] = z1[i]
+		}
+		sigmoidbackprop(1, x[:i], y[:i], z1[:i])
+		Sigmoidbackprop(1, x[:i], y[:i], z2[:i])
+		for j := 0; j < i; j++ {
+			if z1[j] != z2[j] {
+				t.Fatalf("Experiment %d values do not match want %f got %f in vector of length %d\n",
+					i, z1[j], z2[j], len(z2[:i]))
 			}
 		}
 	}

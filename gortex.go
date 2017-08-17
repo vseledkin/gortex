@@ -23,10 +23,6 @@ func Abs(f float32) float32 {
 	return f
 }
 
-func Sqrt(x float32) float32 {
-	return float32(math.Sqrt(float64(x)))
-}
-
 func Pow(x, y float32) float32 {
 	return float32(math.Pow(float64(x), float64(y)))
 }

@@ -12,8 +12,6 @@ TEXT ·Saxpy(SB), 7, $0
 	
 
 	simd_loop:
-		//PREFETCHNTA (128*8)(SI)
-		//PREFETCHNTA (128*8)(DI)
 		// Load four pairs and scale
 		MOVUPS	(SI), X2
 		MOVUPS	(DI), X3
