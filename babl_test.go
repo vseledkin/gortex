@@ -36,7 +36,7 @@ func TestBabiChallemge(t *testing.T) {
 	fmt.Printf("%s\n", dic)
 	fmt.Printf("Dictionary has %d tokens\n", dic.Len())
 
-	s := NewSolver()                                  // the Solver uses RMSPROP
+	optimizer := NewOptimizer(OpOp{Method: WINDOWGRAD, LearningRate: 0.0003, Momentum: DefaultMomentum, Clip: 4})
 	LookupTable := RandMat(embedding_size, dic.Len()) // Lookup Table matrix
 	encoder := MakeOutputlessLSTM(embedding_size, hidden_size)
 	encoder.ForgetGateTrick(2.0)
@@ -120,7 +120,7 @@ func TestBabiChallemge(t *testing.T) {
 		if count%batch_size == 0 && count > 0 {
 			//ScaleGradient(encoderModel, 1/e_steps)
 			//ScaleGradient(decoderModel, 1/d_steps)
-			s.Step(model, learning_rate, 0.00001, 5.0)
+			optimizer.Step(model)
 			d_steps = 0
 			e_steps = 0
 		}

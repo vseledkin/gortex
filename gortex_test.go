@@ -99,7 +99,7 @@ func TestOptimization(t *testing.T) {
 	target := MatFromSlice([][]float32{{1}, {0}, {0}, {0}, {0}, {0}, {0}, {0}, {0}, {1}})
 
 	// make optimizer
-	s := NewSolver() // the Solver uses RMSProp
+	optimizer := NewOptimizer(OpOp{Method: WINDOWGRAD, LearningRate: 0.01, Momentum: DefaultMomentum, Clip: 4})
 
 	// update W and b, use learning rate of 0.02,
 	// regularization strength of 0.0001 and clip gradient magnitudes at 5.0
@@ -113,7 +113,7 @@ func TestOptimization(t *testing.T) {
 		// compute gradients
 		G.Backward()
 		// update model weights
-		s.Step(model, 1, 0.0, 0.0)
+		optimizer.Step(model)
 		// print error
 		t.Logf("step: %d err: %f\n", i, mse)
 		if mse < 0.0001 {
@@ -142,7 +142,7 @@ func TestOptimizationWithCrossentropy1(t *testing.T) {
 	target := uint(4)
 
 	// make optimizer
-	s := NewSolver() // the Solver uses RMSProp
+	optimizer := NewOptimizer(OpOp{Method: WINDOWGRAD, LearningRate: 0.0003, Momentum: DefaultMomentum, Clip: 4})
 
 	// update W and b, use learning rate of 0.01,
 	// regularization strength of 0.0001 and clip gradient magnitudes at 5.0
@@ -156,7 +156,7 @@ func TestOptimizationWithCrossentropy1(t *testing.T) {
 		// compute gradients
 		G.Backward()
 		// update model weights
-		s.Step(model, 0.1, 0.0, 0.0)
+		optimizer.Step(model)
 		// print error
 		t.Logf("step: %d crossentropy: %f perplexity: %f probability: %f\n", i, cost, math.Exp(float64(cost)), probability)
 		if probability > 0.999 {
@@ -173,54 +173,7 @@ func TestOptimizationWithCrossentropy1(t *testing.T) {
 
 }
 
-func TestOptimizationWithCrossentropySGD(t *testing.T) {
-	// start from random
-	rand.Seed(time.Now().UnixNano())
-	// model W*x+b weights
-	W := RandXavierMat(10, 4)   // weights Matrix
-	b := RandXavierMat(10, 1)   // bias vector
-	W1 := RandXavierMat(10, 10) // weights Matrix
-	// random signal to map into target
-	x := RandMat(4, 1) // input vector
-	// target class for model - one out of 10
-	target := uint(4)
-
-	// make optimizer
-	s := NewOptimizer(OpOp{Method: SGD, LearningRate: 0.0001}) // the Solver uses SGD
-
-	// update W and b, use learning rate of 0.01,
-	// regularization strength of 0.0001 and clip gradient magnitudes at 5.0
-
-	model := map[string]*Matrix{"W": W, "b": b, "W1": W1}
-	// make 10 optimization steps
-	for i := 0; i < 1000; i++ {
-		G := Graph{NeedsBackprop: true}
-		// make computation graph
-		first := G.Tanh(G.Add(G.Mul(W, x), b))
-		//first := G.Tanh(G.InstanceNormalization(G.Add(G.Mul(W, x), b)))
-		output := G.Mul(W1, first)
-		cost, probability := G.Crossentropy(output, target)
-		t.Logf("step: %d crossentropy: %f perplexity: %f probability: %f\n", i, cost, math.Exp(float64(cost)), probability)
-		if probability > 0.99 { // stop if we got desired result
-			break
-		}
-		// compute gradients
-		G.Backward()
-		// update model weights
-		s.Step(model)
-		// print error
-	}
-	G := Graph{}
-	// make computation graph
-	h := Softmax(G.Mul(W1, G.Tanh(G.Add(G.Mul(W, x), b))))
-	t.Logf("vector of probabilities given signal x: %#v\n", h.W)
-	if h.W[target] < 0.99 {
-		t.Fatalf("model failed to optimize weights; prediction probability=%f must be very close to one", h.W[target])
-	}
-
-}
-
-func TestGruRnn(t *testing.T) {
+func TestGruRnnLanguageModel(t *testing.T) {
 	// start from random
 	rand.Seed(time.Now().UnixNano())
 	trainFile := "input.txt"
@@ -229,12 +182,11 @@ func TestGruRnn(t *testing.T) {
 		t.Fatal(e)
 	}
 	embedding_size := 128
-	hidden_size := 256
+	hidden_size := 128
 	fmt.Printf("Dictionary has %d tokens\n", dic.Len())
 	fmt.Printf("%s\n", dic)
 
-	//s := NewSGDSolver() // the Solver uses SGD
-	s := NewSolver() // the Solver uses RMSPROP
+	optimizer := NewOptimizer(OpOp{Method: WINDOWGRAD, LearningRate: 0.001, Momentum: DefaultMomentum, Clip: 4})
 	//rnn := MakeRNN(embedding_size, hidden_size, dic.Len())
 	net := MakeGRU(embedding_size, hidden_size, dic.Len())
 	//t.Logf("%s\n", rnn)
@@ -245,11 +197,11 @@ func TestGruRnn(t *testing.T) {
 	model := net.GetParameters("RNN")
 	model["LookupTable"] = LookupTable
 	count := 0
-	ma_ppl := NewMovingAverage(50)
-	ma_nll := NewMovingAverage(50)
-	ma_bpc := NewMovingAverage(50)
+	ma_ppl := NewMovingAverage(1000)
+	ma_nll := NewMovingAverage(1000)
+	ma_bpc := NewMovingAverage(1000)
 	batch_size := 16
-	learning_rate := float32(0.001)
+
 	anneal_rate := float32(0.9999)
 	CharSampleVisitor(trainFile, 10, CharSplitter{}, dic, func(epoch int, x []uint) {
 		// map term indexes in dictionary to embedding vectors
@@ -286,13 +238,13 @@ func TestGruRnn(t *testing.T) {
 			//for k, m := range model {
 			//	fmt.Printf("%s %#v %f %f\n", k, m.DW[:2], m.Norm(), m.NormGradient())
 			//}
-			ScaleGradient(model, 1/float32(len(x)-1)/float32(batch_size))
-			s.Step(model, learning_rate, 0, 5.0)
-			fmt.Printf("step: %d nll: %f perplexity: %f bpc: %f lr: %f\n", count, ma_nll.Avg(), ma_ppl.Avg(), ma_bpc.Avg(), learning_rate)
-			learning_rate = learning_rate * anneal_rate
+			//ScaleGradient(model, 1/float32(len(x)-1)/float32(batch_size))
+			optimizer.Step(model)
+			optimizer.LearningRate *= anneal_rate
 		}
 
-		if count%100 == 0 { // print some model generated text
+		if count%1000 == 0 { // print some model generated text
+			fmt.Printf("step: %d nll: %f perplexity: %f bpc: %f lr: %f\n", count, ma_nll.Avg(), ma_ppl.Avg(), ma_bpc.Avg(), optimizer.LearningRate)
 			fmt.Printf("MODEL GENERATED TEXT: ")
 			G := Graph{NeedsBackprop: false}
 			ht := RandMat(hidden_size, 1)
@@ -301,8 +253,13 @@ func TestGruRnn(t *testing.T) {
 			for i := 0; i < 100; i++ {
 				xt := G.Lookup(LookupTable, int(term_id))
 				ht, logits = net.Step(&G, xt, ht)
-				term_id, _ = MaxIV(Softmax(logits))
-				fmt.Printf("%s", dic.TokenByID(term_id))
+				//term_id, _ = MaxIV(Softmax(logits))
+				term_id = Multinomial(Softmax(logits))
+				token := dic.TokenByID(term_id)
+				fmt.Printf("%s", token)
+				if token == "." || token == "?" || token == "?" {
+					break
+				}
 				//t.Logf("step: %d crossentropy: %f perplexity: %f probability: %f\n", time, crossentropy, perplexity, probability)
 			}
 			fmt.Printf("\n")
@@ -334,8 +291,8 @@ func TestMulticoreLSTMTraining(t *testing.T) {
 	fmt.Printf("Dictionary has %d tokens\n", dic.Len())
 	fmt.Printf("%s\n", dic)
 
-	//s := NewSGDSolver() // the Solver uses SGD
-	s := NewSolver() // the Solver uses RMSPROP
+	optimizer := NewOptimizer(OpOp{Method: WINDOWGRAD, LearningRate: 0.0003, Momentum: DefaultMomentum, Clip: 4})
+
 	//rnn := MakeRNN(embedding_size, hidden_size, dic.Len())
 	//rnn := MakeGRU(embedding_size, hidden_size, dic.Len())
 	//net := MakeLSTM(embedding_size, hidden_size, dic.Len())
@@ -408,7 +365,7 @@ func TestMulticoreLSTMTraining(t *testing.T) {
 				update_count = 0
 				ScaleGradient(model, 1/float32(rnn_steps))
 				rnn_steps = 0
-				s.Step(model, learning_rate, 0.00001, 5.0)
+				optimizer.Step(model)
 				fmt.Printf("step: %d nll: %f ppl: %f bpc: %f lr: %f speed:%f speed: %f time:%f s.\n", samples_count, ma_nll.Avg(), ma_ppl.Avg(), ma_bpc.Avg(), learning_rate, ma_speed.Avg(), ma_allspeed.Avg(), ma_duration.Avg())
 				learning_rate = learning_rate * anneal_rate
 				for i := 0; i < threads; i++ { // release train
@@ -581,7 +538,7 @@ func TestAdvRnnTextGenerator(t *testing.T) {
 	fmt.Printf("Dictionary has %d tokens\n", dic.Len())
 	fmt.Printf("%s\n", dic)
 
-	s := NewSolver() // the Solver uses RMSPROP
+	optimizer := NewOptimizer(OpOp{Method: WINDOWGRAD, LearningRate: 0.0003, Momentum: DefaultMomentum, Clip: 4})
 
 	generator := MakeGRU(z_size, g_hidden_size, dic.Len())
 	discriminator := MakeGRU(dic.Len(), hidden_size, 1)
@@ -684,8 +641,10 @@ func TestAdvRnnTextGenerator(t *testing.T) {
 			rate := float32(1.0)
 			if g_cost/d_cost > 1 {
 				rate = g_cost / d_cost
+				optimizer.LearningRate /= rate
 			}
-			s.Step(discriminatorModel, learning_rate/rate, 0, 5.0)
+
+			optimizer.Step(discriminatorModel)
 
 			d_steps = 0
 		}
@@ -733,7 +692,7 @@ func TestAdvRnnTextGenerator(t *testing.T) {
 
 			G.Backward()
 			ScaleGradient(generatorModel, 1/g_steps)
-			s.Step(generatorModel, learning_rate, 0, 5.0)
+			optimizer.Step(generatorModel)
 
 			g_steps = 0
 			ResetGradients(discriminatorModel)
@@ -796,7 +755,7 @@ func TestAutoencoder(t *testing.T) {
 	fmt.Printf("Dictionary has %d tokens\n", dic.Len())
 	fmt.Printf("%s\n", dic)
 
-	s := NewSolver() // the Solver uses RMSPROP
+	optimizer := NewOptimizer(OpOp{Method: WINDOWGRAD, LearningRate: 0.0003, Momentum: DefaultMomentum, Clip: 4})
 
 	encoder := MakeGRU(dic.Len(), hidden_size, 1)
 	decoder := MakeGRU(hidden_size, hidden_size, dic.Len())
@@ -853,8 +812,8 @@ func TestAutoencoder(t *testing.T) {
 		G.Backward()
 		ScaleGradient(encoderModel, 1/e_steps)
 		ScaleGradient(decoderModel, 1/d_steps)
-		s.Step(encoderModel, learning_rate, 0.00001, 5.0)
-		s.Step(decoderModel, learning_rate, 0.00001, 5.0)
+		optimizer.Step(encoderModel)
+		optimizer.Step(decoderModel)
 		d_steps = 0
 		e_steps = 0
 

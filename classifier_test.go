@@ -19,7 +19,7 @@ func TestClassifier(t *testing.T) {
 	fmt.Printf("Dictionary has %d tokens\n", dic.Len())
 	fmt.Printf("%s\n", dic)
 
-	s := NewSolver() // the Solver uses RMSPROP
+	optimizer := NewOptimizer(OpOp{Method: WINDOWGRAD, LearningRate: 0.0003, Momentum: DefaultMomentum, Clip: 4})
 
 	encoder := MakeGRU(dic.Len(), hidden_size, 1)
 	Who := RandXavierMat(2, hidden_size)
@@ -59,7 +59,7 @@ func TestClassifier(t *testing.T) {
 
 		G.Backward()
 		//ScaleGradient(encoderModel, 1.0/float32(len(x)))
-		s.Step(encoderModel, learning_rate, 0.0, 5.0)
+		optimizer.Step(encoderModel)
 
 		count++
 

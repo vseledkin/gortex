@@ -5,53 +5,55 @@ Pure go neural network library
 ## Example code
     
     Features: 
-        autodifferentiation
-        rnn support:
-            vanilla rnn, GRU, LSTM
-        language model sample (in test)
-## Example code
+        auto backpropagation
+        pure golang
+        optimized
+
+## Example 1: fit linear model to two points
 ```go
-    // see gortex_test.go
-    // learn function to map from any to particular vector
+package main
 
-    // start from random
-	rand.Seed(time.Now().UnixNano())
-	// model W*x+b weights
-	W := RandMat(10, 4) // weights Matrix
-	b := RandMat(10, 1) // bias vector
-	// random signal to map into target
-	x := RandMat(4, 1) // input vector
-	// target for model
-	target := MatFromSlice([][]float64{{1}, {0}, {0}, {0}, {0}, {0}, {0}, {0}, {0}, {1}});
+import (
+	g "github.com/vseledkin/gortex"
+	"fmt"
+)
 
-	// make optimizer
-	s := NewSolver() // the Solver uses RMSProp
+func main() {
+	// train data two pints
+	X := []float32{1, 0}
+	Y := []float32{1, 2}
+	// model parameters
+	A := g.RandMat(1, 1)
+	B := g.RandMat(1, 1)
+	modelParameters := map[string]*g.Matrix{"A": A, "B": B}
+	// optimizer
+	optimizer := g.NewOptimizer(g.OpOp{Method: g.SGD, LearningRate: 0.01})
+	epoch, maxEpochs := 0
+	for true {
+		cost := float32(0)
+		for i := range X {
+			y_vector := g.Mat(1, 1)
+			y_vector.Set(0, 0, Y[i])
+			x_vector := g.Mat(1, 1)
+			x_vector.Set(0, 0, X[i])
+			// construct y=Ax+b model
+			graph := &g.Graph{NeedsBackprop: true}
+			result := graph.Add(graph.Mul(A, x_vector), B)
+			cost += graph.MSE(result, y_vector)
+			graph.Backward()
 
-	// update W and b, use learning rate of 0.02,
-	// regularization strength of 0.0001 and clip gradient magnitudes at 5.0
-	var mse float64
-
-	// model weights to optimize
-	model := map[string]*Matrix{"W":W, "b":b}
-	// make 10 optimization steps
-	for i := 0; i < 10; i++ {
-		G := Graph{NeedsBackprop:true}
-		// make computation graph
-		mse = G.MSE(G.Add(G.Mul(W, x), b), target)
-		// compute gradients
-		G.Backward()
-		// update model weights
-		s.Step(model, 0.02, 0.0001, 5.0)
-		// print error
-		t.Logf("step: %d err: %f\n", i, mse)
+			optimizer.Step(modelParameters)
+			fmt.Printf("%d Current A*x+B=y %f*%f + %f = %f abs error=%f\n",
+				step, A.Get(0, 0), B.Get(0, 0), x_vector.Get(0, 0), result.Get(0, 0), cost)
+		}
+		cost /= 2 // per sample cost
+		epoch++
+		if cost < 1e-4 || epoch == maxEpochs {
+			break
+		}
 	}
-	G := Graph{}
-	// test resulting function
-	h := G.Add(G.Mul(W, x), b)
-	t.Logf("Vector mapped by learned function: %#v\n", h.W)
-	if mse > 0.001 {
-		t.Fatalf("model failed to optimize weights of the model mse=%f but must be very close to zero", mse)
-	}
+}
+
 ```
 ## Warning: Beta
 

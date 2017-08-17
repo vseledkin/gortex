@@ -23,7 +23,7 @@ func main() {
 			y_vector.Set(0, 0, Y[i])
 			x_vector := g.Mat(1, 1)
 			x_vector.Set(0, 0, X[i])
-			// construct Ax+b model
+			// construct y=Ax+b model
 			graph := &g.Graph{NeedsBackprop: true}
 			result := graph.Add(graph.Mul(A, x_vector), B)
 			cost += graph.MSE(result, y_vector)
