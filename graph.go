@@ -318,6 +318,32 @@ func (g *Graph) Exp(x *Matrix) *Matrix {
 	return out
 }
 
+// Self normalizing Elu-Selu
+func (g *Graph) Selu(x *Matrix) *Matrix {
+	bias := float32(1.6732632423543772848170429916717)
+	scale := float32(1.0507009873554804934193349852946)
+	out := Mat(x.Rows, x.Columns)
+	for i := range x.W {
+		if x.W[i] > 0 {
+			out.W[i] = scale * x.W[i]
+		} else {
+			out.W[i] = scale * (bias*float32(math.Exp(float64(x.W[i]))) - bias)
+		}
+	}
+	if g.NeedsBackprop {
+		g.backprop = append(g.backprop, func() {
+			for i := range x.W {
+				if x.W[i] > 0 {
+					x.DW[i] += scale * out.DW[i]
+				} else {
+					x.DW[i] += (out.W[i] + scale*bias) * out.DW[i]
+				}
+			}
+		})
+	}
+	return out
+}
+
 // EMul elementwise matrix matrix multiplication
 func (g *Graph) EMul(m1, m2 *Matrix, messages ...string) *Matrix {
 	l1 := len(m1.W)
@@ -384,6 +410,7 @@ func (g *Graph) Concat(m ...*Matrix) *Matrix {
 	}
 	return out
 }
+
 //MSE mean square error loss function
 func (g *Graph) MSE(m1, t *Matrix) float32 {
 	l1 := len(m1.W)

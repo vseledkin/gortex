@@ -29,5 +29,5 @@ func Init(optimize bool) {
 }
 
 func init() {
-	Init(false)
+	Init(true)
 }
