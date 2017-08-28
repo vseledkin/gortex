@@ -5,13 +5,50 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 )
 
 const UNK = "<unk>"
 
+type Token struct {
+	Token     string
+	Frequency uint
+}
+
 type Dictionary struct {
-	Token2ID map[string]uint
-	id2Token []string `json: omit`
+	Token2ID        map[string]uint
+	Token2Frequency map[string]uint
+	id2Token        []string `json: omit`
+}
+
+func (d *Dictionary) AllWordsKnown(text string, s Tokenizer) bool {
+	for _, token := range s.Split(text) {
+		_, ok := d.Token2ID[token]
+		if !ok {
+			return false
+		}
+	}
+	return true
+}
+
+func (d *Dictionary) Top(n uint) *Dictionary {
+	if uint(d.Len()) <= n {
+		return d
+	}
+	dic := &Dictionary{Token2ID: make(map[string]uint), Token2Frequency: make(map[string]uint)}
+	var sorted []*Token
+	for k, v := range d.Token2Frequency {
+		sorted = append(sorted, &Token{k, v})
+	}
+	sort.Slice(sorted, func(i, j int) bool {
+		return sorted[i].Frequency > sorted[j].Frequency
+	})
+
+	for id, t := range sorted[:n] {
+		dic.Token2ID[t.Token] = uint(id)
+	}
+
+	return dic
 }
 
 func SaveDictionary(name string, dic *Dictionary) error {
@@ -86,7 +123,7 @@ func DictionaryFromFile(file string, s Tokenizer) (*Dictionary, error) {
 		return nil, e
 	}
 	r := bufio.NewReader(f)
-	dic := &Dictionary{Token2ID: make(map[string]uint)}
+	dic := &Dictionary{Token2ID: make(map[string]uint), Token2Frequency: make(map[string]uint)}
 	for {
 		line, e := r.ReadString('\n')
 		if e != nil {
@@ -95,6 +132,7 @@ func DictionaryFromFile(file string, s Tokenizer) (*Dictionary, error) {
 		//line = strings.TrimSpace(line) // remove ending \n
 		if len(line) > 0 {
 			for _, token := range s.Split(line) {
+				dic.Token2Frequency[token]++
 				_, ok := dic.Token2ID[token]
 				if !ok {
 					dic.Token2ID[token] = uint(len(dic.Token2ID))
