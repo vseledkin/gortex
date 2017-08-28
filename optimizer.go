@@ -1,6 +1,8 @@
 package gortex
 
 import (
+	"fmt"
+
 	"github.com/vseledkin/gortex/assembler"
 )
 
@@ -14,6 +16,7 @@ const (
 	ADADELTA
 	WINDOWGRAD
 	NETSTEROV
+	PERCENTDELTA
 )
 
 const (
@@ -118,7 +121,12 @@ func (o *Optimizer) clip(w []float32) int {
 	}
 	return num_clipped
 }
-
+func sign(w float32) float32 {
+	if w >= 0 {
+		return 1
+	}
+	return -1
+}
 func (o *Optimizer) Step(model map[string]*Matrix) OpRet {
 	ret := OpRet{}
 	// make method specific weight optimization
@@ -126,6 +134,10 @@ func (o *Optimizer) Step(model map[string]*Matrix) OpRet {
 	for name, m := range model {
 		if o.Clip > 0 {
 			ret.NumClipped += o.clip(m.DW)
+		}
+		//assembler.Sscale(1/(assembler.L2(m.DW)+o.Eps), m.DW)
+		if assembler.L2(m.DW) == 0 {
+			fmt.Printf("WARNING: %s W:%f DW:%f\n", name, assembler.L2(m.W), assembler.L2(m.DW))
 		}
 		switch o.Method {
 		case RMSPROP:
@@ -169,6 +181,15 @@ func (o *Optimizer) Step(model map[string]*Matrix) OpRet {
 			assembler.Saxplusbysetz(o.Momentum, dx, o.LearningRate, m.DW, gsumi)
 			assembler.Saxplusbyplusz(o.Momentum, dx, -(1 + o.Momentum), gsumi, m.W)
 			o.setPreviousGradient(name, gsumi)
+		case PERCENTDELTA:
+			if o.Momentum > 0 {
+				dx := o.getPreviousGradient(name, m)
+				assembler.Saxplusbysetz(o.Momentum, dx, -o.LearningRate, m.DW, dx)
+				// apply corrected gradient
+				assembler.Sxpy(dx, m.W)
+			} else {
+				assembler.Saxpy(-o.LearningRate, m.DW, m.W)
+			}
 		case SGD:
 			if o.Momentum > 0 {
 				dx := o.getPreviousGradient(name, m)

@@ -9,15 +9,16 @@ import (
 	"math"
 
 	"encoding/json"
-	"github.com/vseledkin/gortex/assembler"
 	"io/ioutil"
 	"os"
+
+	"github.com/vseledkin/gortex/assembler"
 )
 
 func TestWordVae(t *testing.T) {
 	// maintain random seed
 	rand.Seed(time.Now().UnixNano())
-	trainFile := "100000_32.txt"
+	trainFile := "top.txt"
 	modelName := "WordVAE"
 	dic, e := LoadDictionary(modelName + ".dic")
 	if e != nil {

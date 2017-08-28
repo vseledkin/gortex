@@ -2,9 +2,10 @@ package gortex
 
 import (
 	"fmt"
-	"github.com/vseledkin/gortex/assembler"
 	"math"
 	"math/rand"
+
+	"github.com/vseledkin/gortex/assembler"
 )
 
 type Matrix struct {
@@ -127,6 +128,15 @@ func RandMat(rows, columns int) *Matrix {
 	M := Mat(rows, columns)
 	for i := range M.W {
 		M.W[i] = float32(rand.NormFloat64()) // standard normal distribution (mean = 0, stddev = 1)
+	}
+	return M
+}
+
+//RandMatMD uses specified gaussian initialization scheme
+func RandMatMD(rows, columns int, mean, dev float64) *Matrix {
+	M := Mat(rows, columns)
+	for i := range M.W {
+		M.W[i] = float32(rand.NormFloat64()*dev + mean) // standard normal distribution (mean = 0, stddev = 1)
 	}
 	return M
 }

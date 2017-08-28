@@ -23,11 +23,11 @@ type Graph struct {
 }
 
 func (g *Graph) Backward() {
+	//mux.Lock()
 	for i := len(g.backprop) - 1; i >= 0; i-- {
-		//mux.Lock()
 		g.backprop[i]() // tick!
-		//mux.Unlock()
 	}
+	//mux.Unlock()
 }
 
 func (g *Graph) InstanceNormalization(m *Matrix) *Matrix {
@@ -318,7 +318,29 @@ func (g *Graph) Exp(x *Matrix) *Matrix {
 	return out
 }
 
-// Self normalizing Elu-Selu
+// Relu
+func (g *Graph) Relu(x *Matrix) *Matrix {
+	out := Mat(x.Rows, x.Columns)
+	for i := range x.W {
+		if x.W[i] < 0 {
+			out.W[i] = 0
+		} else {
+			out.W[i] = x.W[i]
+		}
+	}
+	if g.NeedsBackprop {
+		g.backprop = append(g.backprop, func() {
+			for i := range x.W {
+				if x.W[i] > 0 {
+					x.DW[i] += out.DW[i]
+				}
+			}
+		})
+	}
+	return out
+}
+
+// Self normalizing Elu-Selu implementation
 func (g *Graph) Selu(x *Matrix) *Matrix {
 	bias := float32(1.6732632423543772848170429916717)
 	scale := float32(1.0507009873554804934193349852946)

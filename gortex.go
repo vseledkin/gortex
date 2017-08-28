@@ -271,3 +271,7 @@ func SetParameters(dest, parameters map[string]*Matrix) error {
 	}
 	return nil
 }
+
+func Sigmoid(shift, x float32) float32 {
+	return float32(1 / (1 + math.Exp(float64(shift-x))))
+}
