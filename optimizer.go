@@ -9,7 +9,7 @@ import (
 type OpMethod int
 
 const (
-	SGD OpMethod = iota
+	SGD          OpMethod = iota
 	ADAM
 	RMSPROP
 	ADAGRAD
@@ -135,6 +135,15 @@ func (o *Optimizer) Step(model map[string]*Matrix) OpRet {
 		if o.Clip > 0 {
 			ret.NumClipped += o.clip(m.DW)
 		}
+		if o.L1Decay > 0 {
+			for i := range m.W {
+				m.DW[i] += o.L1Decay * sign(m.W[i])
+			}
+		}
+		if o.L2Decay > 0 {
+			assembler.Saxpy(o.L2Decay, m.W, m.DW)
+		}
+
 		//assembler.Sscale(1/(assembler.L2(m.DW)+o.Eps), m.DW)
 		if assembler.L2(m.DW) == 0 {
 			fmt.Printf("WARNING: %s W:%f DW:%f\n", name, assembler.L2(m.W), assembler.L2(m.DW))
@@ -171,7 +180,7 @@ func (o *Optimizer) Step(model map[string]*Matrix) OpRet {
 			xsumi := o.getPreviousWeight(name, m)
 			assembler.Saxplusbyvsetz(o.Ro, gsumi, 1-o.Ro, m.DW, m.DW, gsumi)
 			for i := range m.W {
-				dx := -assembler.Sqrt((xsumi[i]+o.Eps)/(gsumi[i]+o.Eps)) * m.DW[i]
+				dx := -assembler.Sqrt((xsumi[i] + o.Eps) / (gsumi[i] + o.Eps)) * m.DW[i]
 				xsumi[i] = o.Ro*xsumi[i] + (1-o.Ro)*dx*dx
 				m.W[i] += dx
 			}

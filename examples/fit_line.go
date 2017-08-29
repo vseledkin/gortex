@@ -14,7 +14,7 @@ func main() {
 	B := g.RandMat(1, 1)
 	modelParameters := map[string]*g.Matrix{"A": A, "B": B}
 	// optimizer
-	optimizer := g.NewOptimizer(g.OpOp{Method: g.SGD, LearningRate: 0.01})
+	optimizer := g.NewOptimizer(g.OpOp{Method: g.SGD, L2Decay: 0.001,LearningRate: 0.01, Momentum:0.9})
 	epoch, maxEpochs := 0, 10000
 	for true {
 		cost := float32(0)
