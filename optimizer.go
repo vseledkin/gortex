@@ -1,7 +1,9 @@
 package gortex
 
 import (
-	"fmt"
+	"math"
+
+	"log"
 
 	"github.com/vseledkin/gortex/assembler"
 )
@@ -9,14 +11,14 @@ import (
 type OpMethod int
 
 const (
-	SGD          OpMethod = iota
+	SGD OpMethod = iota
 	ADAM
 	RMSPROP
 	ADAGRAD
 	ADADELTA
 	WINDOWGRAD
 	NETSTEROV
-	PERCENTDELTA
+	POWERBALL
 )
 
 const (
@@ -35,6 +37,7 @@ type OpOp struct {
 	Beta2        float32 // used by adam
 	Clip         float32 // used by all
 	Method       OpMethod
+	Powerball    float32
 }
 
 type OpRet struct {
@@ -75,6 +78,9 @@ func NewOptimizer(ops OpOp) *Optimizer {
 	}
 	if op.Momentum == 0 && op.Method == NETSTEROV {
 		panic("Nesterov assumes momentum is positive!")
+	}
+	if op.Powerball == 0 {
+		op.Powerball = 0.1
 	}
 	return op
 }
@@ -146,13 +152,15 @@ func (o *Optimizer) Step(model map[string]*Matrix) OpRet {
 
 		//assembler.Sscale(1/(assembler.L2(m.DW)+o.Eps), m.DW)
 		if assembler.L2(m.DW) == 0 {
-			fmt.Printf("WARNING: %s W:%f DW:%f\n", name, assembler.L2(m.W), assembler.L2(m.DW))
+			log.Printf("WARNING: %s W:%f DW:%f\n", name, assembler.L2(m.W), assembler.L2(m.DW))
 		}
 		switch o.Method {
 		case RMSPROP:
 			xsumi := o.getPreviousWeight(name, m)
 			assembler.Saxplusbyvsetz(o.RmsDecayRate, xsumi, 1-o.RmsDecayRate, m.DW, m.DW, xsumi)
-			assembler.Saxdivsqrteyplusz(-o.LearningRate, m.DW, o.Eps, xsumi, m.W)
+			if o.Iteration > 10 {
+				assembler.Saxdivsqrteyplusz(-o.LearningRate, m.DW, o.Eps, xsumi, m.W)
+			}
 		case ADAM:
 			gsumi := o.getPreviousGradient(name, m)
 			xsumi := o.getPreviousWeight(name, m)
@@ -164,7 +172,9 @@ func (o *Optimizer) Step(model map[string]*Matrix) OpRet {
 			biasCorr2 := make([]float32, m.Numel())
 			assembler.Saxpy(beta1iteration, gsumi, biasCorr1) // correct bias first moment estimate
 			assembler.Saxpy(beta2iteration, xsumi, biasCorr2) // correct bias second moment estimate
-			assembler.Saxdivsqrteyplusz(-o.LearningRate, biasCorr1, o.Eps, biasCorr2, m.W)
+			if o.Iteration > 10 {
+				assembler.Saxdivsqrteyplusz(-o.LearningRate, biasCorr1, o.Eps, biasCorr2, m.W)
+			}
 		case ADAGRAD:
 			gsumi := o.getPreviousGradient(name, m)
 			assembler.Sxmuleyplusz(m.DW, m.DW, gsumi)
@@ -180,7 +190,7 @@ func (o *Optimizer) Step(model map[string]*Matrix) OpRet {
 			xsumi := o.getPreviousWeight(name, m)
 			assembler.Saxplusbyvsetz(o.Ro, gsumi, 1-o.Ro, m.DW, m.DW, gsumi)
 			for i := range m.W {
-				dx := -assembler.Sqrt((xsumi[i] + o.Eps) / (gsumi[i] + o.Eps)) * m.DW[i]
+				dx := -assembler.Sqrt((xsumi[i]+o.Eps)/(gsumi[i]+o.Eps)) * m.DW[i]
 				xsumi[i] = o.Ro*xsumi[i] + (1-o.Ro)*dx*dx
 				m.W[i] += dx
 			}
@@ -190,13 +200,19 @@ func (o *Optimizer) Step(model map[string]*Matrix) OpRet {
 			assembler.Saxplusbysetz(o.Momentum, dx, o.LearningRate, m.DW, gsumi)
 			assembler.Saxplusbyplusz(o.Momentum, dx, -(1 + o.Momentum), gsumi, m.W)
 			o.setPreviousGradient(name, gsumi)
-		case PERCENTDELTA:
+		case POWERBALL:
 			if o.Momentum > 0 {
 				dx := o.getPreviousGradient(name, m)
+				for i := range m.DW {
+					m.DW[i] = sign(m.DW[i]) * float32(math.Pow(float64(Abs(m.DW[i])), float64(o.Powerball)))
+				}
 				assembler.Saxplusbysetz(o.Momentum, dx, -o.LearningRate, m.DW, dx)
 				// apply corrected gradient
 				assembler.Sxpy(dx, m.W)
 			} else {
+				for i := range m.DW {
+					m.DW[i] = sign(m.DW[i]) * float32(math.Pow(float64(Abs(m.DW[i])), float64(o.Powerball)))
+				}
 				assembler.Saxpy(-o.LearningRate, m.DW, m.W)
 			}
 		case SGD:
