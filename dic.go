@@ -52,9 +52,6 @@ func (d *Dictionary) Top(n uint) *Dictionary {
 }
 
 func SaveDictionary(name string, dic *Dictionary) error {
-	fmt.Print("\n---------------------------------------------------\n")
-	fmt.Printf("Saving dictionary to: %s\n", name)
-	fmt.Print("---------------------------------------------------\n")
 	// save MODEL_NAME
 	f, err := os.Create(name)
 	if err != nil {

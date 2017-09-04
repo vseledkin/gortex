@@ -4,33 +4,61 @@ import (
 	"fmt"
 	"math"
 	"sync"
-
 	"github.com/vseledkin/gortex/assembler"
 )
 
 const epsilon = 1e-9
 
-var mux sync.Mutex
+var mutex sync.Mutex
 
 type Graph struct {
 	NeedsBackprop bool
+	NeedsParallel bool
+	gradients     map[*Matrix][]float32
 	Print         bool
-
 	// this will store a list of functions that perform backprop,
 	// in their forward pass order. So in backprop we will go
 	// backwards and evoke each one
 	backprop []func()
 }
 
+func (g *Graph) grad(m *Matrix) []float32 {
+	if g.NeedsParallel {
+		if g.gradients == nil {
+			g.gradients = make(map[*Matrix][]float32)
+		}
+		if grad, ok := g.gradients[m]; ok {
+			return grad
+		} else {
+			grad = make([]float32, m.Numel())
+			g.gradients[m] = grad
+			return grad
+		}
+	} else {
+		return m.DW
+	}
+}
+
 func (g *Graph) Backward() {
-	//mux.Lock()
 	for i := len(g.backprop) - 1; i >= 0; i-- {
 		g.backprop[i]() // tick!
 	}
-	//mux.Unlock()
+	if g.NeedsParallel {
+		// accumulate gradients
+		for m, grad := range g.gradients {
+			// it is assumed that here is the only place where
+			// multiple threads can mix everything up
+			mutex.Lock()
+			assembler.Sxpy(grad, m.DW)
+			mutex.Unlock()
+		}
+	}
 }
 
 func (g *Graph) InstanceNormalization(m *Matrix) *Matrix {
+	if g.NeedsParallel {
+		panic("Does not support parallel execution")
+	}
 	mean, variance := Moments(m)
 	stdDev := assembler.Sqrt(variance)
 	out := m.SameAs()
@@ -68,24 +96,20 @@ func (g *Graph) InstanceNormalization(m *Matrix) *Matrix {
 	return out
 }
 
-func (g *Graph) Tanh(m *Matrix, messages ...string) *Matrix {
-	// tanh nonlinearity
+func (g *Graph) Tanh(m *Matrix) *Matrix {
+	// tanh non linearity
 	out := m.SameAs()
-
 	for i := range m.W {
 		out.W[i] = float32(math.Tanh(float64(m.W[i])))
 	}
-
 	if g.NeedsBackprop {
+		outDW := g.grad(out)
+		mDW := g.grad(m)
 		g.backprop = append(g.backprop, func() {
-
+			// todo: speedup
 			for i := range m.W {
 				// grad for z = tanh(x) is (1 - z^2)
-				m.DW[i] += (1.0 - out.W[i]*out.W[i]) * out.DW[i]
-			}
-			if len(messages) > 0 && g.Print {
-				fmt.Printf("%s Tanh In(%p N:%f GN:%f) Out(%p N:%f GN:%f)\n",
-					messages[0], m, m.Norm(), m.NormGradient(), out, out.Norm(), out.NormGradient())
+				mDW[i] += (1.0 - out.W[i]*out.W[i]) * outDW[i]
 			}
 		})
 	}
@@ -97,19 +121,20 @@ func (g *Graph) Lookup(lt *Matrix, i int) *Matrix {
 	out := Mat(lt.Rows, 1)
 	offset := i * lt.Rows
 	// we can point to region in slice instead of copy
-	out.W = lt.W[offset : offset+lt.Rows]
-
-	if g.NeedsBackprop {
-		g.backprop = append(g.backprop, func() {
-			// gradient landing
-			assembler.Sxpy(out.DW, lt.DW[offset:offset+lt.Rows])
-		})
-	}
+	out.W = lt.W[offset: offset+lt.Rows]
+	// we can point to region in slice instead of copy
+	out.DW = lt.DW[offset: offset+lt.Rows]
+	// backprop is transparent and not needed
+	//if g.NeedsBackprop {}
 	return out
 }
 
 //Softmax probability distribution interpretation of any vector/matrix
 func (g *Graph) Softmax(m *Matrix) *Matrix {
+
+	if g.NeedsParallel {
+		panic("Does not support parallel execution")
+	}
 	out := Mat(m.Rows, m.Columns) // probability volume
 	maxval := m.W[assembler.Ismax(m.W)]
 	for i := range m.W {
@@ -138,18 +163,17 @@ func (g *Graph) Sigmoid(m *Matrix) *Matrix {
 	}
 
 	if g.NeedsBackprop {
+		outDW := g.grad(out)
+		mDW := g.grad(m)
 		g.backprop = append(g.backprop, func() {
 			// grad for z = sigmoid(x) is sigmoid(x)(1 - sigmoid(x))
-			assembler.Sigmoidbackprop(1, out.W, out.DW, m.DW)
-			//for i := range m.W {
-			//	m.DW[i] += out.W[i] * (1.0 - out.W[i]) * out.DW[i]
-			//}
+			assembler.Sigmoidbackprop(1, out.W, outDW, mDW)
 		})
 	}
 	return out
 }
 
-func (g *Graph) Add(m1, m2 *Matrix, messages ...string) *Matrix {
+func (g *Graph) Add(m1, m2 *Matrix) *Matrix {
 	l1 := len(m1.W)
 	l2 := len(m2.W)
 	if l1 != l2 {
@@ -158,19 +182,14 @@ func (g *Graph) Add(m1, m2 *Matrix, messages ...string) *Matrix {
 
 	out := m1.CopyAs() // copy only weights not gradients
 	assembler.Sxpy(m2.W, out.W)
-	/*
-		out := m1.SameAs()
-		for i := 0; i < l1; i++ {
-			out.W[i] = m1.W[i] + m2.W[i]
-		}*/
+
 	if g.NeedsBackprop {
+		outDW := g.grad(out)
+		m1DW := g.grad(m1)
+		m2DW := g.grad(m2)
 		g.backprop = append(g.backprop, func() {
-			assembler.Sxpy(out.DW, m1.DW)
-			assembler.Sxpy(out.DW, m2.DW)
-			if len(messages) > 0 && g.Print {
-				fmt.Printf("%s Add In1(%p N:%f GN:%f) In2(%p N:%f GN:%f) Out(%p N:%f GN:%f)\n",
-					messages[0], m1, m1.Norm(), m1.NormGradient(), m2, m2.Norm(), m2.NormGradient(), out, out.Norm(), out.NormGradient())
-			}
+			assembler.Sxpy(outDW, m1DW)
+			assembler.Sxpy(outDW, m2DW)
 		})
 	}
 	return out
@@ -184,22 +203,21 @@ func (g *Graph) Sub(m1, m2 *Matrix) *Matrix {
 	}
 
 	out := m1.SameAs()
-	for i := 0; i < l1; i++ {
-		out.W[i] = m1.W[i] - m2.W[i]
-	}
+	assembler.Saxpy(-1, m2.W, m1.W)
 
 	if g.NeedsBackprop {
+		outDW := g.grad(out)
+		m1DW := g.grad(m1)
+		m2DW := g.grad(m2)
 		g.backprop = append(g.backprop, func() {
-			for i := 0; i < l1; i++ {
-				m1.DW[i] += out.DW[i]
-				m2.DW[i] += -out.DW[i]
-			}
+			assembler.Sxpy(outDW, m1DW)
+			assembler.Saxpy(-1, outDW, m2DW)
 		})
 	}
 	return out
 }
 
-func (g *Graph) mulv(m1, m2 *Matrix, messages ...string) *Matrix {
+func (g *Graph) mulv(m1, m2 *Matrix) *Matrix {
 	// multiply matrix and vector m1 * m2
 	if m1.Columns != m2.Rows {
 		panic(fmt.Errorf("matmul dimensions misaligned m1.columns=%d must be equal m2.rows=%d", m1.Columns, m2.Rows))
@@ -211,21 +229,20 @@ func (g *Graph) mulv(m1, m2 *Matrix, messages ...string) *Matrix {
 	}
 
 	if g.NeedsBackprop {
+		outDW := g.grad(out)
+		m1DW := g.grad(m1)
+		m2DW := g.grad(m2)
 		g.backprop = append(g.backprop, func() {
 			for i := 0; i < m1.Rows; i++ { // loop over rows of m1
-				assembler.Saxpy(out.DW[i], m2.W, m1.DW[m1.Columns*i:m1.Columns*i+m1.Columns])
-				assembler.Saxpy(out.DW[i], m1.W[m1.Columns*i:m1.Columns*i+m1.Columns], m2.DW)
-			}
-			if len(messages) > 0 && g.Print {
-				fmt.Printf("%s Mul In1(%p N:%f GN:%f) In2(%p N:%f GN:%f) Out(%p N:%f GN:%f)\n",
-					messages[0], m1, m1.Norm(), m1.NormGradient(), m2, m2.Norm(), m2.NormGradient(), out, out.Norm(), out.NormGradient())
+				assembler.Saxpy(outDW[i], m2.W, m1DW[m1.Columns*i:m1.Columns*i+m1.Columns])
+				assembler.Saxpy(outDW[i], m1.W[m1.Columns*i:m1.Columns*i+m1.Columns], m2DW)
 			}
 		})
 	}
 	return out
 }
 
-func (g *Graph) Mul(m1, m2 *Matrix, messages ...string) *Matrix {
+func (g *Graph) Mul(m1, m2 *Matrix) *Matrix {
 	// multiply matrices m1 * m2
 	if m1.Columns != m2.Rows {
 		panic(fmt.Errorf("matmul dimensions misaligned m1.columns=%d must be equal m2.rows=%d", m1.Columns, m2.Rows))
@@ -244,22 +261,18 @@ func (g *Graph) Mul(m1, m2 *Matrix, messages ...string) *Matrix {
 		}
 	}
 	if g.NeedsBackprop {
+		outDW := g.grad(out)
+		m1DW := g.grad(m1)
+		m2DW := g.grad(m2)
 		g.backprop = append(g.backprop, func() {
-			//if len(messages) > 0 {
-			//	fmt.Printf("%s Norm:%f GradientNorm:%f\n", messages[0], out.Norm(), out.NormGradient())
-			//}
 			for i := 0; i < m1.Rows; i++ { // loop over rows of m1
 				for j := 0; j < m2.Columns; j++ { // loop over cols of m2
-					b := out.DW[m2.Columns*i+j]
+					b := outDW[m2.Columns*i+j]
 					for k := 0; k < m1.Columns; k++ { // dot product loop
-						m1.DW[m1.Columns*i+k] += m2.W[m2.Columns*k+j] * b
-						m2.DW[m2.Columns*k+j] += m1.W[m1.Columns*i+k] * b
+						m1DW[m1.Columns*i+k] += m2.W[m2.Columns*k+j] * b
+						m2DW[m2.Columns*k+j] += m1.W[m1.Columns*i+k] * b
 					}
 				}
-			}
-			if len(messages) > 0 && g.Print {
-				fmt.Printf("%s Mul In1(%p N:%f GN:%f) In2(%p N:%f GN:%f) Out(%p N:%f GN:%f)\n",
-					messages[0], m1, m1.Norm(), m1.NormGradient(), m2, m2.Norm(), m2.NormGradient(), out, out.Norm(), out.NormGradient())
 			}
 		})
 	}
@@ -267,13 +280,15 @@ func (g *Graph) Mul(m1, m2 *Matrix, messages ...string) *Matrix {
 }
 
 // Sum of weights of x
-func (g *Graph) Sum(x *Matrix) *Matrix {
-	out := Mat(x.Rows, x.Columns)
-	out.W[0] = assembler.Sum(x.W)
+func (g *Graph) Sum(m *Matrix) *Matrix {
+	out := Mat(1, 1)
+	out.W[0] = assembler.Sum(m.W)
 	if g.NeedsBackprop {
+		outDW := g.grad(out)
+		mDW := g.grad(m)
 		g.backprop = append(g.backprop, func() {
-			for i := range x.DW {
-				x.DW[i] += out.DW[0]
+			for i := range mDW {
+				mDW[i] += outDW[0]
 			}
 		})
 	}
@@ -281,38 +296,44 @@ func (g *Graph) Sum(x *Matrix) *Matrix {
 }
 
 // Add non learnable constant to x
-func (g *Graph) AddConstant(c float32, x *Matrix) *Matrix {
-	out := x.ConstantAs(c)
-	assembler.Sxpy(x.W, out.W)
+func (g *Graph) AddConstant(c float32, m *Matrix) *Matrix {
+	out := m.ConstantAs(c)
+	assembler.Sxpy(m.W, out.W)
 	if g.NeedsBackprop {
+		outDW := g.grad(out)
+		mDW := g.grad(m)
 		g.backprop = append(g.backprop, func() {
-			assembler.Sxpy(out.DW, x.DW)
+			assembler.Sxpy(outDW, mDW)
 		})
 	}
 	return out
 }
 
 // Multiply x by a non learnable constant
-func (g *Graph) MulConstant(c float32, x *Matrix) *Matrix {
-	out := x.CopyAs()
+func (g *Graph) MulConstant(c float32, m *Matrix) *Matrix {
+	out := m.CopyAs()
 	assembler.Sscale(c, out.W)
 	if g.NeedsBackprop {
+		outDW := g.grad(out)
+		mDW := g.grad(m)
 		g.backprop = append(g.backprop, func() {
-			assembler.Saxpy(c, out.DW, x.DW)
+			assembler.Saxpy(c, outDW, mDW)
 		})
 	}
 	return out
 }
 
 // Take elementwise exponent of x
-func (g *Graph) Exp(x *Matrix) *Matrix {
-	out := Mat(x.Rows, x.Columns)
-	for i := range x.W {
-		out.W[i] = float32(math.Exp(float64(x.W[i])))
+func (g *Graph) Exp(m *Matrix) *Matrix {
+	out := Mat(m.Rows, m.Columns)
+	for i := range m.W {
+		out.W[i] = float32(math.Exp(float64(m.W[i])))
 	}
 	if g.NeedsBackprop {
+		outDW := g.grad(out)
+		mDW := g.grad(m)
 		g.backprop = append(g.backprop, func() {
-			assembler.Sxmuleyplusz(out.DW, out.W, x.DW)
+			assembler.Sxmuleyplusz(outDW, out.W, mDW)
 		})
 	}
 	return out
@@ -329,10 +350,12 @@ func (g *Graph) Relu(x *Matrix) *Matrix {
 		}
 	}
 	if g.NeedsBackprop {
+		outDW := g.grad(out)
+		xDW := g.grad(x)
 		g.backprop = append(g.backprop, func() {
 			for i := range x.W {
 				if x.W[i] > 0 {
-					x.DW[i] += out.DW[i]
+					xDW[i] += outDW[i]
 				}
 			}
 		})
@@ -342,6 +365,10 @@ func (g *Graph) Relu(x *Matrix) *Matrix {
 
 // Self normalizing Elu-Selu implementation
 func (g *Graph) Selu(x *Matrix) *Matrix {
+
+	if g.NeedsParallel {
+		panic("Does not support parallel execution")
+	}
 	bias := float32(1.6732632423543772848170429916717)
 	scale := float32(1.0507009873554804934193349852946)
 	out := Mat(x.Rows, x.Columns)
@@ -367,33 +394,23 @@ func (g *Graph) Selu(x *Matrix) *Matrix {
 }
 
 // EMul elementwise matrix matrix multiplication
-func (g *Graph) EMul(m1, m2 *Matrix, messages ...string) *Matrix {
+func (g *Graph) EMul(m1, m2 *Matrix) *Matrix {
 	l1 := len(m1.W)
 	l2 := len(m2.W)
 	if l1 != l2 {
 		panic(fmt.Errorf("emul number of elements must be equal numel(m1)=%d must be equal numel(m2)=%d", l1, l2))
 	}
 
-	/*out := m1.SameAs()
-	for i := range m1.W {
-		out.W[i] = m1.W[i] * m2.W[i]
-	}
-	*/
 	out := m1.CopyAs()
 	assembler.Sxmuley(m2.W, out.W)
 
 	if g.NeedsBackprop {
+		outDW := g.grad(out)
+		m1DW := g.grad(m1)
+		m2DW := g.grad(m2)
 		g.backprop = append(g.backprop, func() {
-			assembler.Sxmuleyplusz(m2.W, out.DW, m1.DW)
-			assembler.Sxmuleyplusz(m1.W, out.DW, m2.DW)
-			//for i := range m1.W {
-			//	m1.DW[i] += m2.W[i] * out.DW[i]
-			//	m2.DW[i] += m1.W[i] * out.DW[i]
-			//}
-			if len(messages) > 0 && g.Print {
-				fmt.Printf("%s EMul In1(%p N:%f GN:%f) In2(%p N:%f GN:%f) Out(%p N:%f GN:%f)\n",
-					messages[0], m1, m1.Norm(), m1.NormGradient(), m2, m2.Norm(), m2.NormGradient(), out, out.Norm(), out.NormGradient())
-			}
+			assembler.Sxmuleyplusz(m2.W, outDW, m1DW)
+			assembler.Sxmuleyplusz(m1.W, outDW, m2DW)
 		})
 	}
 	return out
@@ -401,6 +418,10 @@ func (g *Graph) EMul(m1, m2 *Matrix, messages ...string) *Matrix {
 
 // Concatenate two or more vectors
 func (g *Graph) Concat(m ...*Matrix) *Matrix {
+
+	if g.NeedsParallel {
+		panic("Does not support parallel execution")
+	}
 	L := len(m)
 	if L < 2 {
 		panic(fmt.Errorf("concat is for two or more vectors but %d vectors given", L))
@@ -435,6 +456,10 @@ func (g *Graph) Concat(m ...*Matrix) *Matrix {
 
 //MSE mean square error loss function
 func (g *Graph) MSE(m1, t *Matrix) float32 {
+
+	if g.NeedsParallel {
+		panic("Does not support parallel execution")
+	}
 	l1 := len(m1.W)
 	l2 := len(t.W)
 	if l1 != l2 {
@@ -461,24 +486,20 @@ func (g *Graph) MSE(m1, t *Matrix) float32 {
 }
 
 //Crossentropy loss function takes logits vector and list of label ids
-func (g *Graph) Crossentropy(m1 *Matrix, label uint) (cost, probability float32) {
-
-	if label >= uint(len(m1.W)) {
-		panic(fmt.Errorf("label value must be within range [0;numel(m1)]=[0;%d] but %d given", len(m1.W)-1, label))
+func (g *Graph) Crossentropy(m *Matrix, label uint) (cost, probability float32) {
+	if label >= uint(len(m.W)) {
+		panic(fmt.Errorf("label value must be within range [0;numel(m1)]=[0;%d] but %d given", len(m.W)-1, label))
 	}
 	// compute probabilities
-	probabilities := Softmax(m1)
+	probabilities := Softmax(m)
 	probability = probabilities.W[label]
 	cost = float32(-math.Log(float64(probability)))
 	if g.NeedsBackprop {
+		mDW := g.grad(m)
 		g.backprop = append(g.backprop, func() {
-			assembler.Sxpy(probabilities.W, m1.DW)
-			//for i := range m1.DW {
-			//	m1.DW[i] += probabilities.W[i]
-			//}
-			m1.DW[label] -= 1
+			assembler.Sxpy(probabilities.W, mDW)
+			mDW[label] -= 1
 		})
 	}
-
 	return
 }
