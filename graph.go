@@ -355,7 +355,9 @@ func (g *Graph) Relu(x *Matrix) *Matrix {
 		xDW := g.grad(x)
 		g.backprop = append(g.backprop, func() {
 			for i := range x.W {
-				if x.W[i] > 0 {
+				if x.W[i] < 0 {
+					xDW[i] = 0
+				} else {
 					xDW[i] += outDW[i]
 				}
 			}

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 )
 
 const UNK = "<unk>"
@@ -126,7 +127,7 @@ func DictionaryFromFile(file string, s Tokenizer) (*Dictionary, error) {
 		if e != nil {
 			break
 		}
-		//line = strings.TrimSpace(line) // remove ending \n
+		line = strings.TrimSpace(line) // remove ending \n
 		if len(line) > 0 {
 			for _, token := range s.Split(line) {
 				dic.Token2Frequency[token]++
