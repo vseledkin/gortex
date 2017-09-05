@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"sync"
+
 	"github.com/vseledkin/gortex/assembler"
 )
 
@@ -121,9 +122,9 @@ func (g *Graph) Lookup(lt *Matrix, i int) *Matrix {
 	out := Mat(lt.Rows, 1)
 	offset := i * lt.Rows
 	// we can point to region in slice instead of copy
-	out.W = lt.W[offset: offset+lt.Rows]
+	out.W = lt.W[offset : offset+lt.Rows]
 	// we can point to region in slice instead of copy
-	out.DW = lt.DW[offset: offset+lt.Rows]
+	out.DW = lt.DW[offset : offset+lt.Rows]
 	// backprop is transparent and not needed
 	//if g.NeedsBackprop {}
 	return out
@@ -202,7 +203,7 @@ func (g *Graph) Sub(m1, m2 *Matrix) *Matrix {
 		panic(fmt.Errorf("matsub number of elements must be equal numel(m1)=%d must be equal numel(m2)=%d", l1, l2))
 	}
 
-	out := m1.SameAs()
+	out := m1.CopyAs()
 	assembler.Saxpy(-1, m2.W, m1.W)
 
 	if g.NeedsBackprop {
