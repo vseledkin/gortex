@@ -204,7 +204,7 @@ func (g *Graph) Sub(m1, m2 *Matrix) *Matrix {
 	}
 
 	out := m1.CopyAs()
-	assembler.Saxpy(-1, m2.W, m1.W)
+	assembler.Saxpy(-1, m2.W, out.W)
 
 	if g.NeedsBackprop {
 		outDW := g.grad(out)
