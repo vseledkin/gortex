@@ -1,6 +1,10 @@
 package gortex
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/vseledkin/gortex/assembler"
+)
 
 // Gated recurrent unit
 
@@ -79,8 +83,8 @@ func (vae *VAE) SetParameters(namespace string, parameters map[string]*Matrix) e
 
 func (vae *VAE) Step(g *Graph, x *Matrix) (sample, mean, logvar *Matrix) {
 	// make VAE computation graph
-	xz := g.MulConstant(1.3, g.Tanh(g.Add(g.Mul(vae.W, x), vae.WB)))
-	xz = g.MulConstant(1.3, g.Tanh(g.Add(g.Mul(vae.W1, xz), vae.W1B)))
+	xz := g.Tanh(g.Add(g.Mul(vae.W, x), vae.WB))
+	xz = g.Tanh(g.Add(g.Mul(vae.W1, xz), vae.W1B))
 	mean = g.Mul(vae.WM, xz)
 	logvar = g.Mul(vae.WD, xz)
 	// sample random vector from normal 0 1 distribution
@@ -93,8 +97,8 @@ func (vae *VAE) Step(g *Graph, x *Matrix) (sample, mean, logvar *Matrix) {
 
 func (vae *VAE) StepAmplitude(g *Graph, x *Matrix, amplitude float64) (sample, mean, logvar *Matrix) {
 	// make VAE computation graph
-	xz := g.MulConstant(1.6, g.Tanh(g.Add(g.Mul(vae.W, x), vae.WB)))
-	xz = g.MulConstant(1.6, g.Tanh(g.Add(g.Mul(vae.W1, xz), vae.W1B)))
+	xz := g.Relu(g.Add(g.Mul(vae.W, x), vae.WB))
+	xz = g.Relu(g.Add(g.Mul(vae.W1, xz), vae.W1B))
 	//xz := g.Tanh(g.Add(g.Mul(vae.W, x), vae.WB))
 	//xz = g.Tanh(g.Add(g.Mul(vae.W1, xz), vae.W1B))
 	mean = g.Mul(vae.WM, xz)
@@ -108,23 +112,26 @@ func (vae *VAE) StepAmplitude(g *Graph, x *Matrix, amplitude float64) (sample, m
 }
 
 func (vae *VAE) Step1(g *Graph, x *Matrix) (y *Matrix) {
-	y = g.MulConstant(1.6, g.Tanh(g.Add(g.Mul(vae.WW, x), vae.WWB)))
-	y = g.MulConstant(1.6, g.Tanh(g.Add(g.Mul(vae.WW1, y), vae.WW1B)))
+	y = g.Relu(g.Add(g.Mul(vae.WW, x), vae.WWB))
+	y = g.Relu(g.Add(g.Mul(vae.WW1, y), vae.WW1B))
 	return
 }
 
 func (vae *VAE) KLD(g *Graph, scale float32, mean, logvar *Matrix) float32 {
 	// make VAE computation graph
-	if scale == 0 {
-		g.NeedsBackprop = false
-	}
-	kld := g.MulConstant(-0.5, g.Sum(g.Sub(g.Sub(g.AddConstant(1.0, logvar), g.EMul(mean, mean)), g.Exp(logvar))))
-	if scale == 0 {
-		g.NeedsBackprop = true
-	}
+	klds := g.MulConstant(-0.5, g.Sub(g.Sub(g.AddConstant(1.0, logvar), g.EMul(mean, mean)), g.Exp(logvar)))
+	//exp := g.Exp(logvar)
+	//fmt.Printf("%v\n", exp)
+	//meanmean := g.EMul(mean, mean)
+	//fmt.Printf("%v\n", meanmean)
+	g.NeedsBackprop = false
+	kld := g.Sum(klds)
+	g.NeedsBackprop = true
 	if g.NeedsBackprop && scale > 0 {
+
 		g.backprop = append(g.backprop, func() {
-			kld.DW[0] += scale * kld.W[0]
+			assembler.Saxpy(scale, klds.W, klds.DW)
+			//kld.DW[0] += scale * kld.W[0]
 		})
 	}
 	return kld.W[0]

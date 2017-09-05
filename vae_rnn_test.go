@@ -2,6 +2,7 @@ package gortex
 
 import (
 	"fmt"
+	"math"
 	"math/rand"
 	"os"
 	"testing"
@@ -36,16 +37,17 @@ func TestCharRnnVae(t *testing.T) {
 		}
 	}
 
-	hidden_size := 128
+	hidden_size := 256
 	embedding_size := 128
-	z_size := 256
+	z_size := 128
 	fmt.Printf("%s\n", dic)
 	fmt.Printf("Dictionary has %d tokens\n", dic.Len())
 
 	//kld_scale := float32(0.0)
-	optimizer := NewOptimizer(OpOp{Method: WINDOWGRAD, LearningRate: 0.0002, Momentum: DefaultMomentum, Clip: 1})
+	optimizer := NewOptimizer(OpOp{Method: WINDOWGRAD, LearningRate: 0.00001, Momentum: DefaultMomentum, Clip: 4, L2Decay: 0.00001})
+	optimizer.Iteration = 100000
 	//optimizer := NewOptimizer(OpOp{Method: RMSPROP, LearningRate: 0.00021, Momentum: DefaultMomentum, Clip: 4})
-	LookupTable := RandMatMD(embedding_size, dic.Len(), 0, 0.01) // Lookup Table matrix
+	LookupTable := RandMatMD(embedding_size, dic.Len(), 0, 0.1) // Lookup Table matrix
 	encoder := MakeOutputlessGRU(embedding_size, hidden_size)
 
 	vae := MakeVae(hidden_size, z_size)
@@ -85,20 +87,24 @@ func TestCharRnnVae(t *testing.T) {
 	var e_steps, d_steps float32
 
 	batch_size := 32
-	threads := 4
+	threads := 1
 	license := make(chan struct{}, threads)
 	for i := 0; i < threads; i++ {
 		license <- struct{}{}
 	}
 
 	kld_scale := float32(1.0)
-	epsilon := 0.01
-	//xxx := float32(0)
-	//xxx_step := float32(0.001)
+	epsilon := 1.0
+	xxx := float32(0)
+	xxx_step := float32(0.05)
 	missCount := float32(0)
 	gotCount := float32(0)
+	start_annealing := false
 	//CharSampleVisitor(trainFile, 1, CharSplitter{}, dic, func(epoch int, x []uint) {
 	WordSampleVisitor(trainFile, WordSplitter{}, dic, func(epoch int, x []uint) {
+		if len(x) == 0 {
+			return
+		}
 		<-license
 		count++
 		go func(count int) {
@@ -125,7 +131,7 @@ func TestCharRnnVae(t *testing.T) {
 
 			decoded := ""
 			distribution = vae.Step1(G, distribution)
-			ht = Mat(hidden_size, 1)
+			ht = Mat(hidden_size, 1).OnesAs()
 
 			for i := range x {
 				d_steps++
@@ -142,15 +148,18 @@ func TestCharRnnVae(t *testing.T) {
 					missCount++
 				}
 			}
-			if missCount > 0 {
-				cost = cost / float32(len(x))
+			cost = cost / float32(len(x))
+
+			if math.IsNaN(float64(cost)) {
+				panic("NAN cost detected!!")
 			}
+			//println(cost)
 			G.Backward()
 
 			if count%batch_size == 0 && count > 0 {
-				//ScaleGradient(encoderModel, 1/e_steps)
-				//ScaleGradient(decoderModel, 1/d_steps)
-				//ScaleGradient(vaeModel, 1/float32(batch_size)/d_steps)
+				ScaleGradient(encoderModel, 1/e_steps)
+				ScaleGradient(decoderModel, 1/d_steps)
+				ScaleGradient(vaeModel, 1/d_steps/float32(batch_size))
 				optimizer.Step(model)
 				d_steps = 0
 				e_steps = 0
@@ -178,15 +187,16 @@ func TestCharRnnVae(t *testing.T) {
 				fmt.Printf("mean: %#v\n", mean.W[:10])
 				gotCount = 0
 				missCount = 0
-				if mg < 0.09 && epsilon < 1 {
-					//kld_scale = Sigmoid(12, xxx)
-					//xxx += xxx_step
-					epsilon *= 1.1
-					if epsilon > 1 {
-						epsilon = 1
+				if !start_annealing {
+					if avg_cost < 0.5 {
+						start_annealing = true
 					}
-					optimizer.LearningRate *= 0.999
 				}
+				if start_annealing {
+					kld_scale = Sigmoid(10, xxx)
+					xxx += xxx_step
+				}
+				optimizer.LearningRate *= 0.9995
 
 				// interpolate between two pints
 				z1 := RandMatMD(vae.z_size, 1, 0, epsilon)
@@ -198,7 +208,7 @@ func TestCharRnnVae(t *testing.T) {
 					z := gg.Add(gg.MulConstant(1.0-a, z1), gg.MulConstant(a, z2))
 					decoded := ""
 					z = vae.Step1(gg, z)
-					ht = Mat(hidden_size, 1)
+					ht = Mat(hidden_size, 1).OnesAs()
 				loop:
 					for range make([]struct{}, 32) {
 						ht, logit = decoder.Step(gg, z, ht)
