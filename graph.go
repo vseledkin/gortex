@@ -97,7 +97,7 @@ func (g *Graph) Lookup(lt *Matrix, i int) *Matrix {
 	out := Mat(lt.Rows, 1)
 	offset := i * lt.Rows
 	// we can point to region in slice instead of copy
-	out.W = lt.W[offset : offset+lt.Rows]
+	out.W = lt.W[offset: offset+lt.Rows]
 
 	if g.NeedsBackprop {
 		g.backprop = append(g.backprop, func() {
@@ -430,6 +430,35 @@ func (g *Graph) Concat(m ...*Matrix) *Matrix {
 			}
 		})
 	}
+	return out
+}
+
+//MSE mean square error loss function
+func (g *Graph) MSE_t(m1, t *Matrix) *Matrix {
+
+	l1 := len(m1.W)
+	l2 := len(t.W)
+	if l1 != l2 {
+		panic(fmt.Errorf("mse number of elements must be equal numel(m1)=%d must be equal numel(m2)=%d", l1, l2))
+	}
+	var mse float32
+	var tmp float32
+	for i := 0; i < l1; i++ {
+		tmp = m1.W[i] - t.W[i]
+		mse += tmp * tmp
+	}
+	mse /= float32(l1)
+	out := Mat(1, 1)
+	out.W[0] = mse
+	if g.NeedsBackprop {
+		g.backprop = append(g.backprop, func() {
+			b := out.DW[0] * 2.0 / float32(l1)
+			for i := 0; i < l1; i++ { // loop over rows of m1
+				m1.DW[i] += b * (m1.W[i] - t.W[i]) // 1/Columns * sum((x-t)^2) derivative keep it math correct no Ng's
+			}
+		})
+	}
+
 	return out
 }
 
