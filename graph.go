@@ -433,7 +433,7 @@ func (g *Graph) Concat(m ...*Matrix) *Matrix {
 	return out
 }
 
-//MSE mean square error loss function
+//MSE mean square error loss function to replace MSE
 func (g *Graph) MSE_t(m1, t *Matrix) *Matrix {
 
 	l1 := len(m1.W)
@@ -510,4 +510,35 @@ func (g *Graph) Crossentropy(m1 *Matrix, label uint) (cost, probability float32)
 	}
 
 	return
+}
+
+// MaxOut node over columns of 2d tensor (of any length)
+func (g *Graph) MaxOut(d2_input []*Matrix) (*Matrix, []int) {
+	W := len(d2_input)
+	if W == 0 {
+		panic(fmt.Errorf("empty input is not acceptable"))
+	}
+	H := len(d2_input[0].W)
+	if H == 0 {
+		panic(fmt.Errorf("zero length input not acceptable"))
+	}
+	out := Mat(H, 1) // vector of activations
+	copy(out.W, d2_input[0].W)
+	positions := make([]int, H)
+	for h := 0; h < H; h++ {
+		for w := 1; w < W; w++ {
+			if out.W[h] < d2_input[w].W[h] {
+				out.W[h] = d2_input[w].W[h]
+				positions[h] = w
+			}
+		}
+	}
+	if g.NeedsBackprop {
+		g.backprop = append(g.backprop, func() {
+			for h, w := range positions {
+				d2_input[w].DW[h] += out.DW[h]
+			}
+		})
+	}
+	return out, positions
 }
