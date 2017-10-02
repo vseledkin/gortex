@@ -7,10 +7,19 @@ import (
 	"os"
 	"testing"
 	"time"
+
+	"github.com/vseledkin/gortex/assembler"
 )
 
+func reverse(ss []uint) {
+	last := len(ss) - 1
+	for i := 0; i < len(ss)/2; i++ {
+		ss[i], ss[last-i] = ss[last-i], ss[i]
+	}
+}
+
 func TestCharRnnVae(t *testing.T) {
-	words := true
+	words := false
 	delim := ""
 
 	// maintain random seed
@@ -37,20 +46,21 @@ func TestCharRnnVae(t *testing.T) {
 		}
 	}
 
-	hidden_size := 256
+	hidden_size := 128
 	embedding_size := 128
 	z_size := 128
 	fmt.Printf("%s\n", dic)
 	fmt.Printf("Dictionary has %d tokens\n", dic.Len())
 
 	//kld_scale := float32(0.0)
-	optimizer := NewOptimizer(OpOp{Method: RMSPROP, LearningRate: 0.001, Momentum: DefaultMomentum, Clip: 4, L2Decay: 0.00001})
-	//optimizer.Iteration = 10
+	optimizer := NewOptimizer(OpOp{Method: ADAM, LearningRate: 0.0007, Momentum: DefaultMomentum, Clip: 7})
+	optimizer.Iteration = 1000
 	LookupTable := RandMatMD(embedding_size, dic.Len(), 0, 0.1) // Lookup Table matrix
+	LookupTableCounts := make(map[int]int)
 	encoder := MakeOutputlessGRU(embedding_size, hidden_size)
 
 	vae := MakeVae(hidden_size, z_size)
-	decoder := MakeGRU(hidden_size, hidden_size, dic.Len())
+	decoder := MakeGRU(hidden_size+dic.Len(), hidden_size, dic.Len())
 
 	model := make(map[string]*Matrix)
 	// define model parameters
@@ -85,8 +95,8 @@ func TestCharRnnVae(t *testing.T) {
 
 	var e_steps, d_steps float32
 
-	batch_size := 32
-	threads := 6
+	batch_size := 16
+	threads := 1
 	license := make(chan struct{}, threads)
 	for i := 0; i < threads; i++ {
 		license <- struct{}{}
@@ -99,8 +109,8 @@ func TestCharRnnVae(t *testing.T) {
 	missCount := float32(0)
 	gotCount := float32(0)
 	start_annealing := false
-	//CharSampleVisitor(trainFile, 1, CharSplitter{}, dic, func(epoch int, x []uint) {
-	WordSampleVisitor(trainFile, WordSplitter{}, dic, func(epoch int, x []uint) {
+	CharSampleVisitor(trainFile, 1, CharSplitter{}, dic, func(epoch int, x []uint) {
+		//WordSampleVisitor(trainFile, WordSplitter{}, dic, func(epoch int, x []uint) {
 		if len(x) == 0 {
 			return
 		}
@@ -112,30 +122,33 @@ func TestCharRnnVae(t *testing.T) {
 			for i := range x {
 				sample += dic.TokenByID(x[i]) + delim
 			}
-			G := &Graph{NeedsBackprop: true, NeedsParallel: true}
+			G := &Graph{NeedsBackprop: true, NeedsParallel: false}
 			ht := Mat(hidden_size, 1).OnesAs() // vector of zeros
 
 			// encode sequence into z
+			reverse(x)
 			for i := range x {
 				e_steps++
-				embedding := G.Lookup(LookupTable, int(x[i]))
+				embedding := G.Lookup2(LookupTable, int(x[i]), LookupTableCounts)
 				ht = encoder.Step(G, embedding, ht)
 			}
 			distribution, mean, logvar := vae.StepAmplitude(G, ht, epsilon)
 			// estimate KLD
 			kld := vae.KLD(G, kld_scale, mean, logvar)
 			// decode sequence from z
-			var logit *Matrix
 			cost := float32(0)
 
 			decoded := ""
 			distribution = vae.Step1(G, distribution)
 			ht = Mat(hidden_size, 1).OnesAs()
-
+			logit := Mat(dic.Len(), 1)
+			logit.W[dic.IDByToken(" ")] = 0.89
+			ht = Mat(hidden_size, 1).OnesAs()
+			reverse(x)
 			for i := range x {
 				d_steps++
 
-				ht, logit = decoder.Step(G, distribution, ht)
+				ht, logit = decoder.Step(G, G.Concat(distribution, G.Softmax(logit)), ht)
 
 				c, _ := G.Crossentropy(logit, x[i])
 				cid, _ := MaxIV(Softmax(logit))
@@ -157,6 +170,16 @@ func TestCharRnnVae(t *testing.T) {
 
 			if count%batch_size == 0 && count > 0 {
 				mutex.Lock()
+
+				for i, count := range LookupTableCounts {
+					if count > 1 {
+						assembler.Sscale(1/float32(count), LookupTable.DW[i*LookupTable.Rows:i*LookupTable.Rows+LookupTable.Rows])
+					}
+					if count > 0 {
+						LookupTableCounts[i] = 0
+					}
+				}
+
 				ScaleGradient(encoderModel, 1/e_steps)
 				ScaleGradient(decoderModel, 1/d_steps)
 				ScaleGradient(vaeModel, 1/d_steps)
@@ -171,7 +194,9 @@ func TestCharRnnVae(t *testing.T) {
 			ma_cost.Add(cost)
 
 			if count%100000 == 0 {
+				mutex.Lock()
 				SaveModel(modelName, model)
+				mutex.Unlock()
 			}
 
 			if count%1000 == 0 {
@@ -211,9 +236,11 @@ func TestCharRnnVae(t *testing.T) {
 					decoded := ""
 					z = vae.Step1(gg, z)
 					ht = Mat(hidden_size, 1).OnesAs()
+					logit := Mat(dic.Len(), 1)
+					logit.W[dic.IDByToken(" ")] = 0.89
 				loop:
 					for range make([]struct{}, 32) {
-						ht, logit = decoder.Step(gg, z, ht)
+						ht, logit = decoder.Step(gg, gg.Concat(z, gg.Softmax(logit)), ht)
 						//cid, _ := MaxIV(Softmax(logit))
 						cid := Multinomial(Softmax(logit))
 						token := dic.TokenByID(cid)

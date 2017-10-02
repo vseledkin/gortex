@@ -38,8 +38,8 @@ func TestCharVae(t *testing.T) {
 	fmt.Printf("%s\n", dic)
 	fmt.Printf("Dictionary has %d tokens\n", dic.Len())
 
-	//optimizer := NewOptimizer(OpOp{Method: WINDOWGRAD, LearningRate: 0.001, Momentum: DefaultMomentum, Clip: 5})
-	optimizer := NewOptimizer(OpOp{Method: WINDOWGRAD, LearningRate: 0.0003, Momentum: DefaultMomentum, Clip: 4})
+	optimizer := NewOptimizer(OpOp{Method: WINDOWGRAD, LearningRate: 0.0009, Momentum: DefaultMomentum, Clip: 4})
+	//optimizer := NewOptimizer(OpOp{Method: PERCENTDELTA, LearningRate: 0.001, Momentum: DefaultMomentum, Clip: 4})
 	LookupTable := RandMat(embedding_size, dic.Len()) // Lookup Table matrix
 	encoder := MakeOutputlessLSTM(embedding_size, hidden_size)
 	encoder.ForgetGateTrick(2.0)
@@ -82,8 +82,8 @@ func TestCharVae(t *testing.T) {
 	var e_steps, d_steps float32
 
 	batch_size := 32
-	kld_scale := float32(0.0175)
-	threads := 4
+	kld_scale := float32(0.0)
+	threads := 6
 	license := make(chan struct{}, threads)
 	for i := 0; i < threads; i++ {
 		license <- struct{}{}
@@ -118,6 +118,8 @@ func TestCharVae(t *testing.T) {
 			decoded := ""
 			ht = Mat(hidden_size, 1).OnesAs() // vector of zeros
 			ct = Mat(hidden_size, 1).OnesAs() // vector of zeros
+
+			distribution = vae.Step1(G, distribution)
 			for i := range x {
 				d_steps++
 				ht, ct, logit = decoder.Step(G, distribution, ht, ct)
@@ -153,7 +155,7 @@ func TestCharVae(t *testing.T) {
 			avg_mean := ma_mean.Avg()
 			avg_dev := ma_dev.Avg()
 
-			if count%10000 == 0 {
+			if count%100000 == 0 {
 				SaveModel(modelName, model)
 			}
 
@@ -191,6 +193,7 @@ func TestCharVae(t *testing.T) {
 					decoded := ""
 					ht = Mat(hidden_size, 1).OnesAs() // vector of zeros
 					ct = Mat(hidden_size, 1).OnesAs() // vector of zeros
+					z = vae.Step1(gg, z)
 					for range make([]struct{}, 32) {
 						ht, ct, logit = decoder.Step(gg, z, ht, ct)
 						cid, _ := MaxIV(Softmax(logit))

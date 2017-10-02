@@ -17,6 +17,7 @@ type Graph struct {
 	NeedsParallel bool
 	gradients     map[*Matrix][]float32
 	Print         bool
+
 	// this will store a list of functions that perform backprop,
 	// in their forward pass order. So in backprop we will go
 	// backwards and evoke each one
@@ -118,6 +119,21 @@ func (g *Graph) Tanh(m *Matrix) *Matrix {
 }
 
 func (g *Graph) Lookup(lt *Matrix, i int) *Matrix {
+	// pickup rows as embeddings for speed so lt Matrix is treated as column major
+	out := Mat(lt.Rows, 1)
+	offset := i * lt.Rows
+	// we can point to region in slice instead of copy
+	out.W = lt.W[offset : offset+lt.Rows]
+	// we can point to region in slice instead of copy
+	out.DW = lt.DW[offset : offset+lt.Rows]
+	// backprop is transparent and not needed
+	//if g.NeedsBackprop {}
+	return out
+}
+
+func (g *Graph) Lookup2(lt *Matrix, i int, count map[int]int) *Matrix {
+	// register lookup
+	count[i]++
 	// pickup rows as embeddings for speed so lt Matrix is treated as column major
 	out := Mat(lt.Rows, 1)
 	offset := i * lt.Rows
