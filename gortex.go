@@ -22,6 +22,24 @@ func Abs(f float32) float32 {
 	}
 	return f
 }
+func Max(x, y float32) float32 {
+	if x < y {
+		return y
+	}
+	return x
+}
+func MaxInt(x, y int) int {
+	if x < y {
+		return y
+	}
+	return x
+}
+func MinInt(x, y int) int {
+	if x > y {
+		return y
+	}
+	return x
+}
 
 func Pow(x, y float32) float32 {
 	return float32(math.Pow(float64(x), float64(y)))

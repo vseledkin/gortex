@@ -266,6 +266,37 @@ func (g *Graph) Mul(m1, m2 *Matrix, messages ...string) *Matrix {
 	return out
 }
 
+func (g *Graph) Attention(m []*Matrix, v *Matrix) *Matrix {
+	// multiply transposed matrix and vector m * v
+	Height := len(m)
+	Width := m[0].Rows
+	if Height != v.Rows {
+		panic(fmt.Errorf("transposed matmul dimensions misaligned m1.rows=%d must be equal m2.rows=%d", Height, v.Rows))
+	}
+
+	out := Mat(Width, 1)
+	// not effective todo: optimize
+	for w := 0; w < Width; w++ { // loop over rows of v
+		for h := 0; h < Height; h++ {
+			out.W[w] += v.W[h] * m[h].W[w]
+		}
+	}
+
+	if g.NeedsBackprop {
+		g.backprop = append(g.backprop, func() {
+			for w := 0; w < Width; w++ { // loop over rows of v
+				for h := 0; h < Height; h++ {
+					// matrix gradient
+					m[h].DW[w] += out.DW[w] * v.W[h]
+					// vector gradient
+					v.DW[h] += out.DW[w] * m[h].W[w]
+				}
+			}
+		})
+	}
+	return out
+}
+
 // Sum of weights of x
 func (g *Graph) Sum(x *Matrix) *Matrix {
 	out := Mat(x.Rows, x.Columns)

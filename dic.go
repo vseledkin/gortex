@@ -9,6 +9,8 @@ import (
 )
 
 const UNK = "<unk>"
+const BOS = "≤"
+const EOS = "≥"
 
 type Token struct {
 	Token     string
@@ -51,6 +53,14 @@ func (d *Dictionary) Top(n uint) *Dictionary {
 	return dic
 }
 
+func (d *Dictionary) Add(token string) {
+	d.Token2Frequency[token]++
+	_, ok := d.Token2ID[token]
+	if !ok {
+		d.Token2ID[token] = uint(len(d.Token2ID))
+	}
+}
+
 func SaveDictionary(name string, dic *Dictionary) error {
 	fmt.Print("\n---------------------------------------------------\n")
 	fmt.Printf("Saving dictionary to: %s\n", name)
@@ -87,6 +97,7 @@ func LoadDictionary(name string) (*Dictionary, error) {
 	f.Close()
 	return m, nil
 }
+
 func (d *Dictionary) String() string {
 	str := ""
 	for k, v := range d.Token2ID {
@@ -117,6 +128,26 @@ func (d *Dictionary) Len() int {
 	return len(d.Token2ID)
 }
 
+func (d *Dictionary) Encode(tokenizer Tokenizer, text string) []uint {
+	tokens := tokenizer.Split(text)
+	encoded := make([]uint, len(tokens))
+	for i := range tokens {
+		encoded[i] = d.IDByToken(tokens[i])
+	}
+	return encoded
+}
+func (d *Dictionary) Decode(sequence []uint, delimiter string) string {
+	// read sample
+	source := ""
+	for i := range sequence {
+		if i > 0 {
+			source += delimiter
+		}
+		source += d.TokenByID(sequence[i])
+	}
+	return source
+}
+
 func DictionaryFromFile(file string, s Tokenizer) (*Dictionary, error) {
 	f, e := os.Open(file)
 	if e != nil {
@@ -132,11 +163,7 @@ func DictionaryFromFile(file string, s Tokenizer) (*Dictionary, error) {
 		//line = strings.TrimSpace(line) // remove ending \n
 		if len(line) > 0 {
 			for _, token := range s.Split(line) {
-				dic.Token2Frequency[token]++
-				_, ok := dic.Token2ID[token]
-				if !ok {
-					dic.Token2ID[token] = uint(len(dic.Token2ID))
-				}
+				dic.Add(token)
 			}
 		}
 	}

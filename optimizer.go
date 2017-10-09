@@ -138,6 +138,7 @@ func (o *Optimizer) Step(model map[string]*Matrix) OpRet {
 	// make method specific weight optimization
 	o.Iteration++
 	for name, m := range model {
+
 		if o.Clip > 0 {
 			ret.NumClipped += o.clip(m.DW)
 		}
@@ -150,7 +151,6 @@ func (o *Optimizer) Step(model map[string]*Matrix) OpRet {
 			assembler.Saxpy(o.L2Decay, m.W, m.DW)
 		}
 
-		//assembler.Sscale(1/(assembler.L2(m.DW)+o.Eps), m.DW)
 		if assembler.L2(m.DW) == 0 {
 			log.Printf("WARNING: %s W:%f DW:%f\n", name, assembler.L2(m.W), assembler.L2(m.DW))
 		}
