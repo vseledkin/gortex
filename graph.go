@@ -116,6 +116,9 @@ func (g *Graph) Softmax(m *Matrix) *Matrix {
 		out.W[i] = float32(math.Exp(float64(m.W[i] - maxval)))
 	}
 	sum := assembler.Sum(out.W)
+	if sum == 0 {
+		panic("OGO")
+	}
 	assembler.Sscale(1/sum, out.W)
 
 	if g.NeedsBackprop {
@@ -270,9 +273,9 @@ func (g *Graph) Attention(m []*Matrix, v *Matrix) *Matrix {
 	// multiply transposed matrix and vector m * v
 	Height := len(m)
 	Width := m[0].Rows
-	if Height != v.Rows {
-		panic(fmt.Errorf("transposed matmul dimensions misaligned m1.rows=%d must be equal m2.rows=%d", Height, v.Rows))
-	}
+	//if Height != v.Rows {
+	//	panic(fmt.Errorf("transposed matmul dimensions misaligned m1.rows=%d must be equal m2.rows=%d", Height, v.Rows))
+	//}
 
 	out := Mat(Width, 1)
 	// not effective todo: optimize

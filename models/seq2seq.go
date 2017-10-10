@@ -6,8 +6,7 @@ import (
 )
 
 type Seq2seq struct {
-	FirstLookupTable   *gortex.Matrix
-	SecondLookupTable  *gortex.Matrix
+	LookupTable        *gortex.Matrix
 	EmbeddingSize      int
 	HiddenSize         int
 	EncoderOutputSize  int
@@ -29,8 +28,7 @@ func (tc Seq2seq) Create() *Seq2seq {
 	for i := 0; i < (tc.Window-1)/2; i++ {
 		tc.pad = append(tc.pad, gortex.Mat(2*tc.EncoderOutputSize, 1))
 	}
-	tc.FirstLookupTable = gortex.RandMat(tc.EmbeddingSize, tc.Dic.First.Len())   // Lookup Table matrix
-	tc.SecondLookupTable = gortex.RandMat(tc.EmbeddingSize, tc.Dic.Second.Len()) // Lookup Table matrix
+	tc.LookupTable = gortex.RandMat(tc.EmbeddingSize, tc.Dic.First.Len()) // Lookup Table matrix
 	tc.fencoder = gortex.MakeGRU(tc.EmbeddingSize, tc.HiddenSize, tc.EncoderOutputSize)
 	tc.fencoder.ForgetGateTrick(2.0)
 	tc.bencoder = gortex.MakeGRU(tc.EmbeddingSize, tc.HiddenSize, tc.EncoderOutputSize)
@@ -38,7 +36,7 @@ func (tc Seq2seq) Create() *Seq2seq {
 	tc.decoder = gortex.MakeGRU(tc.Dic.Second.Len()+2*tc.EncoderOutputSize, tc.HiddenSize, tc.Dic.Second.Len())
 	tc.decoder.ForgetGateTrick(2.0)
 
-	tc.Aw = gortex.RandXavierMat(tc.Window, tc.HiddenSize)
+	tc.Aw = gortex.RandXavierMat(tc.Window, tc.Dic.Second.Len()+tc.Window)
 	tc.Ab = gortex.RandXavierMat(tc.Window, 1)
 
 	// model parameters
@@ -63,24 +61,25 @@ func (tc *Seq2seq) Forward(G *gortex.Graph, input_sequence, target_sequence []ui
 	tc.EncoderOutputs = make([]*gortex.Matrix, len(input_sequence))
 
 	for i, token := range input_sequence {
-		ht, tc.EncoderOutputs[i] = tc.fencoder.Step(G, G.Lookup(tc.FirstLookupTable, int(token)), ht)
+		ht, tc.EncoderOutputs[i] = tc.fencoder.Step(G, G.Lookup(tc.LookupTable, int(token)), ht)
 	}
 
 	ht = gortex.Mat(tc.HiddenSize, 1).OnesAs()
 	for i := len(input_sequence) - 1; i >= 0; i-- {
-		ht, y = tc.bencoder.Step(G, G.Lookup(tc.SecondLookupTable, int(input_sequence[i])), ht)
+		ht, y = tc.bencoder.Step(G, G.Lookup(tc.LookupTable, int(input_sequence[i])), ht)
 		tc.EncoderOutputs[i] = G.Tanh(G.Concat(tc.EncoderOutputs[i], y))
 	}
-	var sequence []*gortex.Matrix
+	//var sequence []*gortex.Matrix
 	// padleft with zeros
-	sequence = append(sequence, tc.pad...)
-	sequence = append(sequence, tc.EncoderOutputs...)
+	//sequence = append(sequence, tc.pad...)
+	//sequence = append(sequence, tc.EncoderOutputs...)
 	// padright with zeros
-	sequence = append(sequence, tc.pad...)
-	tc.EncoderOutputs = sequence
+	//sequence = append(sequence, tc.pad...)
+	//tc.EncoderOutputs = sequence
 
 	ht = gortex.Mat(tc.HiddenSize, 1).OnesAs()
-	prev := gortex.Mat(tc.Dic.Second.Len(), 1).ZerosAs()
+	prev := gortex.Mat(tc.Dic.Second.Len(), 1).OnesAs()
+	A := gortex.Mat(tc.Window, 1).OnesAs()
 	//context := gortex.Mat(2*tc.EncoderOutputSize, 1)
 
 	decoded := ""
@@ -89,10 +88,11 @@ func (tc *Seq2seq) Forward(G *gortex.Graph, input_sequence, target_sequence []ui
 	target_sequence = append(target_sequence, uint(tc.eos))
 	for i := range target_sequence {
 		// make attention vector
-		A := G.Add(G.Mul(tc.Aw, ht), tc.Ab)
-		receptiveField := tc.EncoderOutputs[gortex.MinInt(i, len(tc.EncoderOutputs)-tc.Window):gortex.MinInt(i+tc.Window, len(tc.EncoderOutputs))]
+		A = G.Add(G.Mul(tc.Aw, G.Concat(prev, A)), tc.Ab)
+		//println(i, gortex.MinInt(i, len(tc.EncoderOutputs)-tc.Window), gortex.MinInt(i+tc.Window, len(tc.EncoderOutputs)))
+		//receptiveField := tc.EncoderOutputs[gortex.MinInt(i, len(tc.EncoderOutputs)-tc.Window):gortex.MinInt(i+tc.Window, len(tc.EncoderOutputs))]
 		tc.Attention = G.Softmax(A)
-		context := G.Attention(receptiveField, tc.Attention)
+		context := G.Attention(tc.EncoderOutputs, tc.Attention)
 
 		ht, prev = tc.decoder.Step(G, G.Tanh(G.Concat(prev, context)), ht)
 		// predict at every time step

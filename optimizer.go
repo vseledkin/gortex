@@ -6,12 +6,13 @@ import (
 	"log"
 
 	"github.com/vseledkin/gortex/assembler"
+	"fmt"
 )
 
 type OpMethod int
 
 const (
-	SGD OpMethod = iota
+	SGD        OpMethod = iota
 	ADAM
 	RMSPROP
 	ADAGRAD
@@ -124,6 +125,9 @@ func (o *Optimizer) clip(w []float32) int {
 			w[i] = -o.Clip
 			num_clipped++
 		}
+		if math.IsNaN(float64(w[i])) {
+			panic("NANNNNNN")
+		}
 	}
 	return num_clipped
 }
@@ -133,10 +137,11 @@ func sign(w float32) float32 {
 	}
 	return -1
 }
-func (o *Optimizer) Step(model map[string]*Matrix) OpRet {
+func (o *Optimizer) Step(model map[string]*Matrix, ) OpRet {
 	ret := OpRet{}
 	// make method specific weight optimization
 	o.Iteration++
+	ret.NumClipped = 0
 	for name, m := range model {
 
 		if o.Clip > 0 {
@@ -190,7 +195,7 @@ func (o *Optimizer) Step(model map[string]*Matrix) OpRet {
 			xsumi := o.getPreviousWeight(name, m)
 			assembler.Saxplusbyvsetz(o.Ro, gsumi, 1-o.Ro, m.DW, m.DW, gsumi)
 			for i := range m.W {
-				dx := -assembler.Sqrt((xsumi[i]+o.Eps)/(gsumi[i]+o.Eps)) * m.DW[i]
+				dx := -assembler.Sqrt((xsumi[i] + o.Eps) / (gsumi[i] + o.Eps)) * m.DW[i]
 				xsumi[i] = o.Ro*xsumi[i] + (1-o.Ro)*dx*dx
 				m.W[i] += dx
 			}
@@ -228,8 +233,15 @@ func (o *Optimizer) Step(model map[string]*Matrix) OpRet {
 		default:
 			panic("Not implemented")
 		}
+		for i := range m.W {
+			if math.IsNaN(float64(m.DW[i])) {
+				panic(fmt.Sprintf("WARNING: NAN gradient %s\n", name))
+			}
+			if math.IsNaN(float64(m.W[i])) {
+				panic(fmt.Sprintf("WARNING: NAN weight %s\n", name))
+			}
+		}
 	}
-
 	// reset gradients
 	for _, m := range model {
 		assembler.Sclean(m.DW)

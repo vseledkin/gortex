@@ -17,6 +17,7 @@ const (
 	train     = "train"
 	translate = "translate"
 	epochs    = 100
+	window    = 32
 )
 
 var input, experiment string
@@ -45,20 +46,23 @@ func Sample(trainFile string, dic *gortex.BiDictionary, tokenizer gortex.Tokeniz
 		if len(line) > 0 {
 			pair := strings.Split(line, "<->")
 			terms := tokenizer.Split(pair[0])
-			if len(terms) > 50 {
-				terms = terms[0:50]
+			if len(terms) > window {
+				terms = terms[0:window]
 			}
 			source := make([]uint, len(terms))
 			for i, term := range terms {
 				source[i] = dic.First.IDByToken(term)
 			}
 			terms = tokenizer.Split(pair[1])
-			if len(terms) > 50 {
-				terms = terms[0:50]
+			if len(terms) > window {
+				terms = terms[0:window]
 			}
 			target := make([]uint, len(terms))
 			for i, term := range terms {
 				target[i] = dic.Second.IDByToken(term)
+			}
+			if len(target) > window {
+				target = target[0:window]
 			}
 			step++
 			return epoch, step, source, target
@@ -89,13 +93,13 @@ func Train() {
 	}
 	log.Printf("First SubDictionary has %d tokens", dic.First.Len())
 	log.Printf("Second SubDictionary has %d tokens", dic.Second.Len())
-	optimizer := gortex.NewOptimizer(gortex.OpOp{Method: gortex.SGD, LearningRate: 0.001, Clip: 1})
-	model := models.Seq2seq{EmbeddingSize: 128, HiddenSize: 128, EncoderOutputSize: 64, Window: 33, Dic: dic}.Create()
+	optimizer := gortex.NewOptimizer(gortex.OpOp{Method: gortex.WINDOWGRAD, Momentum: gortex.DefaultMomentum, LearningRate: 0.00051, Clip: 7})
+	model := models.Seq2seq{EmbeddingSize: 128, HiddenSize: 128, EncoderOutputSize: 64, Window: window, Dic: dic}.Create()
 	train_set, err := Sample(input, dic, gortex.CharSplitter{})
 	if err != nil {
 		panic(err)
 	}
-	batch_size := 16
+	batch_size := 4
 	ma_cost := gortex.NewMovingAverage(64)
 	for true {
 		epoch, step, source, target := train_set()
@@ -103,8 +107,10 @@ func Train() {
 		decoded, cost := model.Forward(G, source, target)
 		ma_cost.Add(cost)
 		G.Backward()
+		var num_clip int
 		if step%batch_size == 0 && step > 0 {
-			optimizer.Step(model.Parameters)
+			gortex.ScaleGradient(model.Parameters, 1/float32(len(target)*batch_size))
+			num_clip = optimizer.Step(model.Parameters).NumClipped
 		}
 		if step == 5000 {
 			err = gortex.SaveModel(modelFile, model.Parameters)
@@ -118,6 +124,7 @@ func Train() {
 			log.Printf("Source: %s\n", dic.First.Decode(source, ""))
 			log.Printf("Target: %s\n", dic.Second.Decode(target, ""))
 			log.Printf("Decode: %s\n", decoded)
+			log.Printf("Clip: %d\n", num_clip)
 			log.Printf("Attention:\n")
 			for i := range model.Attention.W {
 				log.Printf("\t%d %f\n", i, model.Attention.W[i])
