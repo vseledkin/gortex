@@ -46,24 +46,18 @@ func Sample(trainFile string, dic *gortex.BiDictionary, tokenizer gortex.Tokeniz
 		if len(line) > 0 {
 			pair := strings.Split(line, "<->")
 			terms := tokenizer.Split(pair[0])
-			if len(terms) > window {
-				terms = terms[0:window]
-			}
+
 			source := make([]uint, len(terms))
 			for i, term := range terms {
 				source[i] = dic.First.IDByToken(term)
 			}
 			terms = tokenizer.Split(pair[1])
-			if len(terms) > window {
-				terms = terms[0:window]
-			}
+
 			target := make([]uint, len(terms))
 			for i, term := range terms {
 				target[i] = dic.Second.IDByToken(term)
 			}
-			if len(target) > window {
-				target = target[0:window]
-			}
+
 			step++
 			return epoch, step, source, target
 		} else {
@@ -87,14 +81,15 @@ func Train() {
 		if err != nil {
 			panic(err)
 		}
+		dic.Top(64)
 		dic.Second.Add(gortex.EOS)
 		dic.Second.Add(gortex.BOS)
 		dic.Save(dicFile)
 	}
 	log.Printf("First SubDictionary has %d tokens", dic.First.Len())
 	log.Printf("Second SubDictionary has %d tokens", dic.Second.Len())
-	optimizer := gortex.NewOptimizer(gortex.OpOp{Method: gortex.WINDOWGRAD, Momentum: gortex.DefaultMomentum, LearningRate: 0.00051, Clip: 7})
-	model := models.Seq2seq{EmbeddingSize: 128, HiddenSize: 128, EncoderOutputSize: 64, Window: window, Dic: dic}.Create()
+	optimizer := gortex.NewOptimizer(gortex.OpOp{Method: gortex.WINDOWGRAD, Momentum: gortex.DefaultMomentum, LearningRate: 0.001, Clip: 7})
+	model := models.Seq2seq{EmbeddingSize: 256, HiddenSize: 256, EncoderOutputSize: 64, Window: window, Dic: dic}.Create()
 	train_set, err := Sample(input, dic, gortex.CharSplitter{})
 	if err != nil {
 		panic(err)
@@ -109,7 +104,7 @@ func Train() {
 		G.Backward()
 		var num_clip int
 		if step%batch_size == 0 && step > 0 {
-			gortex.ScaleGradient(model.Parameters, 1/float32(len(target)*batch_size))
+			//gortex.ScaleGradient(model.Parameters, 1/float32(batch_size))
 			num_clip = optimizer.Step(model.Parameters).NumClipped
 		}
 		if step == 5000 {
@@ -126,9 +121,9 @@ func Train() {
 			log.Printf("Decode: %s\n", decoded)
 			log.Printf("Clip: %d\n", num_clip)
 			log.Printf("Attention:\n")
-			for i := range model.Attention.W {
-				log.Printf("\t%d %f\n", i, model.Attention.W[i])
-			}
+			//for i := range model.Attention.W {
+			//	log.Printf("\t%d %f\n", i, model.Attention.W[i])
+			//}
 			optimizer.LearningRate *= 0.999
 		}
 	}
