@@ -75,3 +75,7 @@ func (*BiDictionary) Load(name string) (*BiDictionary, error) {
 	return d, nil
 }
 
+func (d *BiDictionary) Top(n uint) {
+	d.First = d.First.Top(n)
+	d.Second = d.Second.Top(n)
+}
