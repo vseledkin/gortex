@@ -1,16 +1,17 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
-	"os"
 	"log"
-	"github.com/vseledkin/gortex"
-	"github.com/vseledkin/gortex/models"
-	"bufio"
+	"math/rand"
+	"os"
 	"strings"
 	"time"
-	"math/rand"
+
+	"github.com/vseledkin/gortex"
+	"github.com/vseledkin/gortex/models"
 )
 
 const (
@@ -93,7 +94,7 @@ func Train() {
 	}
 	log.Printf("First SubDictionary has %d tokens", dic.First.Len())
 	log.Printf("Second SubDictionary has %d tokens", dic.Second.Len())
-	optimizer := gortex.NewOptimizer(gortex.OpOp{Method: gortex.WINDOWGRAD, Momentum: gortex.DefaultMomentum, LearningRate: 0.00051, Clip: 7})
+	optimizer := gortex.NewOptimizer(gortex.OpOp{Method: gortex.WINDOWGRAD, Momentum: gortex.DefaultMomentum, LearningRate: 0.001, Clip: 7})
 	model := models.Seq2seq{EmbeddingSize: 128, HiddenSize: 128, EncoderOutputSize: 64, Window: window, Dic: dic}.Create()
 	train_set, err := Sample(input, dic, gortex.CharSplitter{})
 	if err != nil {
@@ -126,8 +127,8 @@ func Train() {
 			log.Printf("Decode: %s\n", decoded)
 			log.Printf("Clip: %d\n", num_clip)
 			log.Printf("Attention:\n")
-			for i := range model.Attention.W {
-				log.Printf("\t%d %f\n", i, model.Attention.W[i])
+			for i := range model.Attention0.W {
+				log.Printf("\t%d %f\n", i, model.Attention0.W[i])
 			}
 			optimizer.LearningRate *= 0.999
 		}

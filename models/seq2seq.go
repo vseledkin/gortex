@@ -1,8 +1,9 @@
 package models
 
 import (
-	"github.com/vseledkin/gortex"
 	"fmt"
+
+	"github.com/vseledkin/gortex"
 )
 
 type Seq2seq struct {
@@ -17,6 +18,7 @@ type Seq2seq struct {
 	decoder            *gortex.GRU
 	Aw, Ab             *gortex.Matrix
 	Attention          *gortex.Matrix
+	Attention0         *gortex.Matrix
 	EncoderOutputs     []*gortex.Matrix
 	pad                []*gortex.Matrix
 	bos, eos           int
@@ -49,12 +51,12 @@ func (tc Seq2seq) Create() *Seq2seq {
 	}
 	tc.Parameters["Aw"] = tc.Aw
 	tc.Parameters["Ab"] = tc.Ab
-
+	tc.Parameters["LookupTable"] = tc.LookupTable
 	return &tc
 }
 
 func (tc *Seq2seq) Forward(G *gortex.Graph, input_sequence, target_sequence []uint) (string, float32) {
-	ht := gortex.Mat(tc.HiddenSize, 1).OnesAs() // vector of zeros
+	ht := gortex.Mat(tc.HiddenSize, 1) // vector of zeros
 
 	var y *gortex.Matrix
 	// reset previous memory
@@ -64,7 +66,7 @@ func (tc *Seq2seq) Forward(G *gortex.Graph, input_sequence, target_sequence []ui
 		ht, tc.EncoderOutputs[i] = tc.fencoder.Step(G, G.Lookup(tc.LookupTable, int(token)), ht)
 	}
 
-	ht = gortex.Mat(tc.HiddenSize, 1).OnesAs()
+	ht = gortex.Mat(tc.HiddenSize, 1)
 	for i := len(input_sequence) - 1; i >= 0; i-- {
 		ht, y = tc.bencoder.Step(G, G.Lookup(tc.LookupTable, int(input_sequence[i])), ht)
 		tc.EncoderOutputs[i] = G.Tanh(G.Concat(tc.EncoderOutputs[i], y))
@@ -77,9 +79,9 @@ func (tc *Seq2seq) Forward(G *gortex.Graph, input_sequence, target_sequence []ui
 	//sequence = append(sequence, tc.pad...)
 	//tc.EncoderOutputs = sequence
 
-	ht = gortex.Mat(tc.HiddenSize, 1).OnesAs()
-	prev := gortex.Mat(tc.Dic.Second.Len(), 1).OnesAs()
-	A := gortex.Mat(tc.Window, 1).OnesAs()
+	ht = gortex.Mat(tc.HiddenSize, 1)
+	prev := gortex.Mat(tc.Dic.Second.Len(), 1)
+	A := gortex.Mat(tc.Window, 1)
 	//context := gortex.Mat(2*tc.EncoderOutputSize, 1)
 
 	decoded := ""
@@ -91,10 +93,13 @@ func (tc *Seq2seq) Forward(G *gortex.Graph, input_sequence, target_sequence []ui
 		A = G.Add(G.Mul(tc.Aw, G.Concat(prev, A)), tc.Ab)
 		//println(i, gortex.MinInt(i, len(tc.EncoderOutputs)-tc.Window), gortex.MinInt(i+tc.Window, len(tc.EncoderOutputs)))
 		//receptiveField := tc.EncoderOutputs[gortex.MinInt(i, len(tc.EncoderOutputs)-tc.Window):gortex.MinInt(i+tc.Window, len(tc.EncoderOutputs))]
-		tc.Attention = G.Softmax(A)
+		tc.Attention = G.Sigmoid(A)
+		if i == 0 {
+			tc.Attention0 = tc.Attention
+		}
 		context := G.Attention(tc.EncoderOutputs, tc.Attention)
 
-		ht, prev = tc.decoder.Step(G, G.Tanh(G.Concat(prev, context)), ht)
+		ht, prev = tc.decoder.Step(G, G.Concat(prev, context), ht)
 		// predict at every time step
 		predictedTokenId, _ := gortex.MaxIV(gortex.Softmax(prev))
 		decoded += tc.Dic.Second.TokenByID(predictedTokenId)
