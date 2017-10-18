@@ -97,7 +97,7 @@ func (g *Graph) Lookup(lt *Matrix, i int) *Matrix {
 	out := Mat(lt.Rows, 1)
 	offset := i * lt.Rows
 	// we can point to region in slice instead of copy
-	out.W = lt.W[offset: offset+lt.Rows]
+	out.W = lt.W[offset : offset+lt.Rows]
 
 	if g.NeedsBackprop {
 		g.backprop = append(g.backprop, func() {
