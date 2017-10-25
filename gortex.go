@@ -224,7 +224,6 @@ func F1Score(trueLabels, predictedLabels []uint, str []string, excludes map[uint
 		if predictedLabels[i] > uint(len(str)-1) {
 			panic(fmt.Errorf("No name for predicted label %d given", predictedLabels[i]))
 		}
-		//m.c++
 	}
 	var maxlabel uint
 

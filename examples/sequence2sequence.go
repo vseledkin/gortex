@@ -1,16 +1,17 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
-	"os"
 	"log"
-	"github.com/vseledkin/gortex"
-	"github.com/vseledkin/gortex/models"
-	"bufio"
+	"math/rand"
+	"os"
 	"strings"
 	"time"
-	"math/rand"
+
+	"github.com/vseledkin/gortex"
+	"github.com/vseledkin/gortex/models"
 )
 
 const (
@@ -79,19 +80,27 @@ func Train() {
 			panic(err)
 		}
 	} else {
-		dic, err = gortex.BiDictionary{}.FromFile(input, gortex.CharSplitter{})
+		dic, err = gortex.BiDictionary{}.FromFile(input, gortex.WordSplitter{})
 		if err != nil {
 			panic(err)
 		}
-		dic.Second.Add(gortex.EOS)
-		dic.Second.Add(gortex.BOS)
 		dic.Save(dicFile)
 	}
 	log.Printf("First SubDictionary has %d tokens", dic.First.Len())
+	dic.First.Print(25)
 	log.Printf("Second SubDictionary has %d tokens", dic.Second.Len())
+	dic.Second.Print(25)
+
+	dic.First = dic.First.Top(1024)
+	dic.Second = dic.Second.Top(1024)
+
+	log.Printf("First SubDictionary has %d tokens", dic.First.Len())
+	dic.First.Print(25)
+	log.Printf("Second SubDictionary has %d tokens", dic.Second.Len())
+	dic.Second.Print(25)
 	optimizer := gortex.NewOptimizer(gortex.OpOp{Method: gortex.SGD, LearningRate: 0.001, Clip: 1})
 	model := models.Seq2seq{EmbeddingSize: 128, HiddenSize: 128, EncoderOutputSize: 64, Window: 33, Dic: dic}.Create()
-	train_set, err := Sample(input, dic, gortex.CharSplitter{})
+	train_set, err := Sample(input, dic, gortex.WordSplitter{})
 	if err != nil {
 		panic(err)
 	}
@@ -115,8 +124,8 @@ func Train() {
 		}
 		if step%100 == 0 && step > 0 {
 			log.Printf("E: %d S: %d LR: %f Loss: %f \n", epoch, step, optimizer.LearningRate, ma_cost.Avg())
-			log.Printf("Source: %s\n", dic.First.Decode(source, ""))
-			log.Printf("Target: %s\n", dic.Second.Decode(target, ""))
+			log.Printf("Source: %s\n", dic.First.Decode(source, " "))
+			log.Printf("Target: %s\n", dic.Second.Decode(target, " "))
 			log.Printf("Decode: %s\n", decoded)
 			log.Printf("Attention:\n")
 			for i := range model.Attention.W {

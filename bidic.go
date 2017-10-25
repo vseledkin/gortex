@@ -1,11 +1,11 @@
 package gortex
 
 import (
-	"os"
 	"bufio"
-	"strings"
 	"encoding/json"
 	"fmt"
+	"os"
+	"strings"
 )
 
 type BiDictionary struct {
@@ -38,8 +38,26 @@ func (d BiDictionary) FromFile(file string, s Tokenizer) (*BiDictionary, error) 
 			}
 		}
 	}
+	d.First.Add(UNK)
+	d.First.Token2Frequency[UNK] = 10e9
+	d.First.Add(BOS)
+	d.First.Token2Frequency[BOS] = 10e9
+	d.First.Add(EOS)
+	d.First.Token2Frequency[EOS] = 10e9
+
+	d.Second.Add(UNK)
+	d.Second.Token2Frequency[UNK] = 10e9
+	d.Second.Add(BOS)
+	d.Second.Token2Frequency[BOS] = 10e9
+	d.Second.Add(EOS)
+	d.Second.Token2Frequency[EOS] = 10e9
 	f.Close()
 	return &d, nil
+}
+
+func (d *BiDictionary) Top(n uint) {
+	d.First = d.First.Top(n)
+	d.Second = d.Second.Top(n)
 }
 
 func (d *BiDictionary) Save(name string) error {
@@ -74,4 +92,3 @@ func (*BiDictionary) Load(name string) (*BiDictionary, error) {
 	f.Close()
 	return d, nil
 }
-

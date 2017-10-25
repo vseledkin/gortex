@@ -8,9 +8,9 @@ import (
 	"sort"
 )
 
-const UNK = "<unk>"
-const BOS = "≤"
-const EOS = "≥"
+const UNK = "UnK"
+const BOS = "BoS"
+const EOS = "EoS"
 
 type Token struct {
 	Token     string
@@ -38,6 +38,7 @@ func (d *Dictionary) Top(n uint) *Dictionary {
 		return d
 	}
 	dic := &Dictionary{Token2ID: make(map[string]uint), Token2Frequency: make(map[string]uint)}
+
 	var sorted []*Token
 	for k, v := range d.Token2Frequency {
 		sorted = append(sorted, &Token{k, v})
@@ -48,6 +49,7 @@ func (d *Dictionary) Top(n uint) *Dictionary {
 
 	for id, t := range sorted[:n] {
 		dic.Token2ID[t.Token] = uint(id)
+		dic.Token2Frequency[t.Token] = d.Token2Frequency[t.Token]
 	}
 
 	return dic
@@ -61,17 +63,13 @@ func (d *Dictionary) Add(token string) {
 	}
 }
 
-func SaveDictionary(name string, dic *Dictionary) error {
-	fmt.Print("\n---------------------------------------------------\n")
-	fmt.Printf("Saving dictionary to: %s\n", name)
-	fmt.Print("---------------------------------------------------\n")
-	// save MODEL_NAME
+func (d *Dictionary) Save(name string) error {
 	f, err := os.Create(name)
 	if err != nil {
 		return err
 	}
 	encoder := json.NewEncoder(f)
-	err = encoder.Encode(dic)
+	err = encoder.Encode(d)
 	if err != nil {
 		return err
 	}
@@ -79,8 +77,19 @@ func SaveDictionary(name string, dic *Dictionary) error {
 	return nil
 }
 
-func LoadDictionary(name string) (*Dictionary, error) {
+func (d *Dictionary) Print(n int) {
+	n = MinInt(n, d.Len())
+	for i := range make([]struct{}, n) {
+		token := d.TokenByID(uint(i))
+		fmt.Printf("%d %s %d\n", i, token, d.Token2Frequency[token])
+	}
+}
 
+func SaveDictionary(name string, dic *Dictionary) error {
+	return dic.Save(name)
+}
+
+func LoadDictionary(name string) (*Dictionary, error) {
 	if len(name) == 0 {
 		return nil, fmt.Errorf("No dictionary file provided! [%s]", name)
 	}
@@ -167,6 +176,12 @@ func DictionaryFromFile(file string, s Tokenizer) (*Dictionary, error) {
 			}
 		}
 	}
+	dic.Add(UNK)
+	dic.Token2Frequency[UNK] = 10e9
+	dic.Add(BOS)
+	dic.Token2Frequency[BOS] = 10e9
+	dic.Add(EOS)
+	dic.Token2Frequency[EOS] = 10e9
 	f.Close()
 	return dic, nil
 }

@@ -1,8 +1,9 @@
 package models
 
 import (
-	"github.com/vseledkin/gortex"
 	"fmt"
+
+	"github.com/vseledkin/gortex"
 )
 
 type Seq2seq struct {
@@ -97,7 +98,7 @@ func (tc *Seq2seq) Forward(G *gortex.Graph, input_sequence, target_sequence []ui
 		ht, prev = tc.decoder.Step(G, G.Tanh(G.Concat(prev, context)), ht)
 		// predict at every time step
 		predictedTokenId, _ := gortex.MaxIV(gortex.Softmax(prev))
-		decoded += tc.Dic.Second.TokenByID(predictedTokenId)
+		decoded += tc.Dic.Second.TokenByID(predictedTokenId) + " "
 		nll, _ := G.Crossentropy(prev, target_sequence[i])
 		cost += nll
 	}
