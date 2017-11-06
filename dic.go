@@ -23,6 +23,17 @@ type Dictionary struct {
 	id2Token        []string `json: omit`
 }
 
+func NewDictionary() *Dictionary {
+	dic := &Dictionary{Token2ID: make(map[string]uint), Token2Frequency: make(map[string]uint)}
+	dic.Add(UNK)
+	dic.Token2Frequency[UNK] = 10e9
+	dic.Add(BOS)
+	dic.Token2Frequency[BOS] = 10e9
+	dic.Add(EOS)
+	dic.Token2Frequency[EOS] = 10e9
+	return dic
+}
+
 func (d *Dictionary) AllWordsKnown(text string, s Tokenizer) bool {
 	for _, token := range s.Split(text) {
 		_, ok := d.Token2ID[token]
@@ -163,7 +174,7 @@ func DictionaryFromFile(file string, s Tokenizer) (*Dictionary, error) {
 		return nil, e
 	}
 	r := bufio.NewReader(f)
-	dic := &Dictionary{Token2ID: make(map[string]uint), Token2Frequency: make(map[string]uint)}
+	dic := NewDictionary()
 	for {
 		line, e := r.ReadString('\n')
 		if e != nil {
@@ -176,12 +187,7 @@ func DictionaryFromFile(file string, s Tokenizer) (*Dictionary, error) {
 			}
 		}
 	}
-	dic.Add(UNK)
-	dic.Token2Frequency[UNK] = 10e9
-	dic.Add(BOS)
-	dic.Token2Frequency[BOS] = 10e9
-	dic.Add(EOS)
-	dic.Token2Frequency[EOS] = 10e9
+
 	f.Close()
 	return dic, nil
 }

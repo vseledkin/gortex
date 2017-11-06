@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/vseledkin/gortex/assembler"
+	"math/rand"
 )
 
 const epsilon = 1e-9
@@ -97,7 +98,7 @@ func (g *Graph) Lookup(lt *Matrix, i int) *Matrix {
 	out := Mat(lt.Rows, 1)
 	offset := i * lt.Rows
 	// we can point to region in slice instead of copy
-	out.W = lt.W[offset : offset+lt.Rows]
+	out.W = lt.W[offset: offset+lt.Rows]
 
 	if g.NeedsBackprop {
 		g.backprop = append(g.backprop, func() {
@@ -572,4 +573,30 @@ func (g *Graph) MaxOut(d2_input []*Matrix) (*Matrix, []int) {
 		})
 	}
 	return out, positions
+}
+
+// Dropout
+func (g *Graph) Dropout(probability float32, input *Matrix) (*Matrix) {
+	if g.NeedsBackprop {
+		out := input.CopyAs() // vector of activations
+
+		mask := make([]float32, len(input.W))
+		assembler.Sset(1.0, mask)
+		for i := range out.W {
+			if rand.Float32() < probability { // this probably expensive
+				out.W[i] = 0
+				mask[i] = 0
+			}
+		}
+		g.backprop = append(g.backprop, func() {
+			// apply mask to gradients, use mask as placeholder for masked gradients for efficiency
+			assembler.Sxmuley(out.DW, mask)
+			// add gradients to input
+			assembler.Sxpy(mask, input.DW)
+		})
+
+		return out
+	} else {
+		return input
+	}
 }

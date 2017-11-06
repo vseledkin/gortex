@@ -20,8 +20,8 @@ func (d BiDictionary) FromFile(file string, s Tokenizer) (*BiDictionary, error) 
 		return nil, e
 	}
 	r := bufio.NewReader(f)
-	d.First = &Dictionary{Token2ID: make(map[string]uint), Token2Frequency: make(map[string]uint)}
-	d.Second = &Dictionary{Token2ID: make(map[string]uint), Token2Frequency: make(map[string]uint)}
+	d.First = NewDictionary()
+	d.Second = NewDictionary()
 	for {
 		line, e := r.ReadString('\n')
 		if e != nil {
@@ -38,19 +38,7 @@ func (d BiDictionary) FromFile(file string, s Tokenizer) (*BiDictionary, error) 
 			}
 		}
 	}
-	d.First.Add(UNK)
-	d.First.Token2Frequency[UNK] = 10e9
-	d.First.Add(BOS)
-	d.First.Token2Frequency[BOS] = 10e9
-	d.First.Add(EOS)
-	d.First.Token2Frequency[EOS] = 10e9
 
-	d.Second.Add(UNK)
-	d.Second.Token2Frequency[UNK] = 10e9
-	d.Second.Add(BOS)
-	d.Second.Token2Frequency[BOS] = 10e9
-	d.Second.Add(EOS)
-	d.Second.Token2Frequency[EOS] = 10e9
 	f.Close()
 	return &d, nil
 }

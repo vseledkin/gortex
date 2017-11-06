@@ -11,7 +11,7 @@ import (
 type OpMethod int
 
 const (
-	SGD OpMethod = iota
+	SGD        OpMethod = iota
 	ADAM
 	RMSPROP
 	ADAGRAD
@@ -38,6 +38,7 @@ type OpOp struct {
 	Clip         float32 // used by all
 	Method       OpMethod
 	Powerball    float32
+	Debug        bool
 }
 
 type OpRet struct {
@@ -151,7 +152,7 @@ func (o *Optimizer) Step(model map[string]*Matrix) OpRet {
 			assembler.Saxpy(o.L2Decay, m.W, m.DW)
 		}
 
-		if assembler.L2(m.DW) == 0 {
+		if o.Debug && assembler.L2(m.DW) == 0 {
 			log.Printf("WARNING: %s W:%f DW:%f\n", name, assembler.L2(m.W), assembler.L2(m.DW))
 		}
 		switch o.Method {
@@ -190,7 +191,7 @@ func (o *Optimizer) Step(model map[string]*Matrix) OpRet {
 			xsumi := o.getPreviousWeight(name, m)
 			assembler.Saxplusbyvsetz(o.Ro, gsumi, 1-o.Ro, m.DW, m.DW, gsumi)
 			for i := range m.W {
-				dx := -assembler.Sqrt((xsumi[i]+o.Eps)/(gsumi[i]+o.Eps)) * m.DW[i]
+				dx := -assembler.Sqrt((xsumi[i] + o.Eps) / (gsumi[i] + o.Eps)) * m.DW[i]
 				xsumi[i] = o.Ro*xsumi[i] + (1-o.Ro)*dx*dx
 				m.W[i] += dx
 			}

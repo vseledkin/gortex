@@ -155,9 +155,6 @@ func Multinomial(probabilities *Matrix) uint {
 }
 
 func SaveModel(name string, m map[string]*Matrix) error {
-	fmt.Print("\n---------------------------------------------------\n")
-	fmt.Printf("Saving model to: %s\n", name)
-	fmt.Print("---------------------------------------------------\n")
 	// save MODEL_NAME
 	f, err := os.Create(name)
 	if err != nil {
