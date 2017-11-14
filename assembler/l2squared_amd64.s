@@ -1,5 +1,9 @@
-//func L2squared(X []float32)
-TEXT ·L2squared(SB), 7, $0
+//+build amd64,!noasm
+
+#include "textflag.h"
+
+//func L2Squared(X []float32)
+TEXT ·L2Squared(SB), 7, $0
   MOVQ	X_data+0(FP), SI
   MOVQ	X_len+8(FP), BP
 

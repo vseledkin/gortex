@@ -1,11 +1,11 @@
+//+build !amd64 noasm
+
 package assembler
 
-// L2squared square of the l2
-func L2squared(X []float32) float32
-
-func l2squared(X []float32) (nrm float32) {
-	for _, x := range X {
-		nrm += x * x
+// square of l2 norm
+func L2Squared(x []float32) (nrm float32) {
+	for i := range x {
+		nrm += x[i] * x[i]
 	}
 	return
 }

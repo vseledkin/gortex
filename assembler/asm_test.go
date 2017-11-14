@@ -25,20 +25,6 @@ func TestSscale(t *testing.T) {
 	}
 }
 
-func TestL2(t *testing.T) {
-	for j := 0; j < 100; j++ {
-		X := make([]float32, j)
-		for i := range X {
-			X[i] = .1
-		}
-		dot := l2(X)
-		dot1 := L2(X)
-		if dot-dot1 > 0.000001 || dot-dot1 < -0.000001 {
-			t.Fatalf("norm do not match want %f got %f in vector of length %d\n", dot, dot1, len(X))
-		}
-	}
-}
-
 func TestSdot(t *testing.T) {
 	x := []float32{0.40724772, 0.0712502, 0.041903675, 0.15231317, 0.21472728, 0.4622725, -0.0903995, 0.24077353, 0.006599188, -0.47139943, 0.3086093, 0.1786874, 0.42446965, 0.22735131, 0.46515256}
 	//y := []float32{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
@@ -64,20 +50,6 @@ func TestSdot(t *testing.T) {
 			if dot-dot1 > 0.00004 || dot-dot1 < -0.00004 {
 				t.Fatalf("dot do not match want %f got %f in vector of length %d in test %d\n", dot, dot1, len(X), i)
 			}
-		}
-	}
-}
-
-func TestL2squared(t *testing.T) {
-	for j := 0; j < 100; j++ {
-		X := make([]float32, j)
-		for i := range X {
-			X[i] = .1
-		}
-		dot := l2squared(X)
-		dot1 := L2squared(X)
-		if dot-dot1 > 0.000001 || dot-dot1 < -0.000001 {
-			t.Fatalf("L2squared do not match want %f got %f in vector of length %d\n", dot, dot1, len(X))
 		}
 	}
 }

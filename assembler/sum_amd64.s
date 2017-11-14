@@ -1,5 +1,9 @@
-// func sumasm(X []float32) float32
-TEXT ·sumasm(SB), 7, $0
+//+build amd64,!noasm
+
+#include "textflag.h"
+
+// func Sum(X []float32) float32
+TEXT ·Sum(SB), 7, $0
   MOVQ	X_data+0(FP), SI
   MOVQ	X_len+8(FP), BP
 

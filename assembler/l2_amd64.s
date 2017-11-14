@@ -1,3 +1,7 @@
+//+build amd64,!noasm
+
+#include "textflag.h"
+
 //func L2(X []float32)
 TEXT ·L2(SB), 7, $0
 	MOVQ	X_data+0(FP), SI

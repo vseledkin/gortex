@@ -1,3 +1,5 @@
+//+build amd64,!noasm
+
 #include "textflag.h"
 
 // func Sqrt(x float32) float32

@@ -87,58 +87,6 @@ func BenchmarkSxpyOptimized(b *testing.B) { //benchmark function starts with "Be
 	}
 }
 
-func BenchmarkL2(b *testing.B) { //benchmark function starts with "Benchmark" and takes a pointer to type testing.B
-	b.StopTimer()
-
-	x := make([]float32, 1000000)
-	for i := range x {
-		x[i] = .1
-	}
-	b.StartTimer() //restart timer
-	for i := 0; i < b.N; i++ {
-		l2(x)
-	}
-}
-
-func BenchmarkOptimizedL2(b *testing.B) { //benchmark function starts with "Benchmark" and takes a pointer to type testing.B
-	b.StopTimer()
-
-	x := make([]float32, 1000000)
-	for i := range x {
-		x[i] = .1
-	}
-	b.StartTimer() //restart timer
-	for i := 0; i < b.N; i++ {
-		L2(x)
-	}
-}
-
-func BenchmarkL2squared(b *testing.B) { //benchmark function starts with "Benchmark" and takes a pointer to type testing.B
-	b.StopTimer()
-
-	x := make([]float32, 1000000)
-	for i := range x {
-		x[i] = .1
-	}
-	b.StartTimer() //restart timer
-	for i := 0; i < b.N; i++ {
-		l2squared(x)
-	}
-}
-
-func BenchmarkOptimizedL2squared(b *testing.B) { //benchmark function starts with "Benchmark" and takes a pointer to type testing.B
-	b.StopTimer()
-
-	x := make([]float32, 1000000)
-	for i := range x {
-		x[i] = .1
-	}
-	b.StartTimer() //restart timer
-	for i := 0; i < b.N; i++ {
-		L2squared(x)
-	}
-}
-
 func BenchmarkSdot(b *testing.B) { //benchmark function starts with "Benchmark" and takes a pointer to type testing.B
 	b.StopTimer()
 
