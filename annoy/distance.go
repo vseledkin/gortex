@@ -1,5 +1,7 @@
 package annoy
 
+import "github.com/vseledkin/gortex/assembler"
+
 type Distance interface {
 	createSplit([]Node, Random, Node) Node
 	distance([]float32, []float32) float32
@@ -16,7 +18,8 @@ func (a Angular) createSplit(nodes []Node, random Random, n Node) Node {
 	for z, _ := range v {
 		v[z] = bestIv[z] - bestJv[z]
 	}
-	n.v = normalize(v)
+	assembler.Sscale(1/assembler.L2(v), v)
+	n.v = v
 	return n
 }
 
@@ -29,7 +32,7 @@ func (a Angular) distance(x, y []float32) float32 {
 	}
 	ppqq := pp * qq
 	if ppqq > 0 {
-		return 2.0 - 2.0*pq/Sqrt(ppqq)
+		return 2.0 - 2.0*pq/assembler.Sqrt(ppqq)
 	}
 	return 2.0
 }

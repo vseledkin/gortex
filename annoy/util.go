@@ -1,7 +1,7 @@
 package annoy
 
 import (
-	"math"
+	"github.com/vseledkin/gortex/assembler"
 )
 
 func twoMeans(distance Distance, nodes []Node, random Random, cosine bool) ([]float32, []float32) {
@@ -20,8 +20,8 @@ func twoMeans(distance Distance, nodes []Node, random Random, cosine bool) ([]fl
 	copy(jv, nodes[j].v)
 
 	if cosine {
-		normalize(iv)
-		normalize(jv)
+		assembler.Sscale(1/assembler.L2(iv),iv)
+		assembler.Sscale(1/assembler.L2(jv),jv)
 	}
 
 	ic := 1
@@ -35,7 +35,7 @@ func twoMeans(distance Distance, nodes []Node, random Random, cosine bool) ([]fl
 
 		norm := float32(1.0)
 		if cosine {
-			norm = getNorm(nodes[k].v)
+			norm = assembler.L2(nodes[k].v)
 		}
 
 		if di < dj {
@@ -51,26 +51,6 @@ func twoMeans(distance Distance, nodes []Node, random Random, cosine bool) ([]fl
 		}
 	}
 	return iv, jv
-}
-
-func normalize(v []float32) []float32 {
-	norm := getNorm(v)
-	for z, _ := range v {
-		v[z] /= norm
-	}
-	return v
-}
-
-func getNorm(v []float32) float32 {
-	var sq_norm float32
-	for _, vz := range v {
-		sq_norm += vz * vz
-	}
-	return Sqrt(sq_norm)
-}
-
-func Sqrt(v float32) float32 {
-	return float32(math.Sqrt(float64(v)))
 }
 
 func Max(x, y float32) float32 {
