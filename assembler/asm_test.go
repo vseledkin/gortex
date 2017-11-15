@@ -5,25 +5,6 @@ import (
 	"testing"
 )
 
-func TestSscale(t *testing.T) {
-	for j := 0; j < 100; j++ {
-		X := make([]float32, j)
-		X1 := make([]float32, j)
-		Y := make([]float32, j)
-		for i := range X {
-			X[i] = float32(rand.NormFloat64())
-			X1[i] = X[i]
-		}
-		factor := float32(rand.NormFloat64())
-		sscale(factor, X)
-		Sscale(factor, X1)
-		for i := range Y {
-			if X[i] != X1[i] {
-				t.Fatalf("sums do not match want %f got %f in vector of length %d\n", X[i], X1[i], len(X))
-			}
-		}
-	}
-}
 
 func TestSdot(t *testing.T) {
 	x := []float32{0.40724772, 0.0712502, 0.041903675, 0.15231317, 0.21472728, 0.4622725, -0.0903995, 0.24077353, 0.006599188, -0.47139943, 0.3086093, 0.1786874, 0.42446965, 0.22735131, 0.46515256}
