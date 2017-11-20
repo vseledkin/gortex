@@ -110,3 +110,52 @@ func vectorScalar2VectorBench(f func(a float32, v []float32), b *testing.B) {
 		}
 	}
 }
+
+// vector , vector to vector functions
+
+func vector2VectorTest(f, ft func(x, y []float32), t *testing.T) {
+	// for test purpocces
+	y := make([]float32, 100)
+	x := make([]float32, 100)
+	for i := range x {
+		y[i] = float32(rand.NormFloat64())
+		x[i] = float32(rand.NormFloat64())
+	}
+	for i := 0; i < 100; i++ {
+		var xx, fast, purego []float32
+		copy(xx, x[:i])
+		copy(fast, y[:i])
+		copy(purego, y[:i])
+		f(xx, fast)
+		ft(xx, purego)
+
+		for j := range purego {
+			if Abs(purego[j]-fast[j]) > 5e-5 {
+				t.Fatalf("sums do not match want %0.6f got %0.6f in vector of length %d\n", purego[j], fast[j], len(purego))
+			}
+		}
+	}
+}
+
+func vector2VectorBench(f func(x, y []float32), b *testing.B) {
+	b.StopTimer()
+	x := make([]float32, 100)
+	a := make([]float32, 100)
+	a_inv := make([]float32, 100)
+	for i := range x {
+		x[i] = float32(rand.NormFloat64())
+		a[i] = float32(rand.NormFloat64())
+		if Abs(a[i]) < 1e-7 {
+			a_inv[i] = 1 / (a[i] + 1e-7)
+		} else {
+			a_inv[i] = 1 / a[i]
+		}
+	}
+	b.StartTimer()
+	for i := 0; i < 100; i++ {
+		for j := 0; j < b.N; j++ {
+			f(a[:i], x[:i])
+			f(a_inv[:i], x[:i])
+		}
+	}
+}
