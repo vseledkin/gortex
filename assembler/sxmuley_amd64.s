@@ -1,5 +1,9 @@
-//func sxmuley_asm(X []float32, Y []float32)
-TEXT ·sxmuley_asm(SB), 7, $0
+//+build amd64,!noasm
+
+#include "textflag.h"
+
+//func Sxmuley(X []float32, Y []float32)
+TEXT ·Sxmuley(SB), 7, $0
 	MOVQ	X_data+0(FP), SI
 	MOVQ	X_len+8(FP), BP
 	MOVQ	Y_data+24(FP), DI
