@@ -1,5 +1,5 @@
-//func sxmuleyplusz_asm(X, Y, Z []float32)
-TEXT ·sxmuleyplusz_asm(SB), 7, $0
+//func Sxmuleyplusz(X, Y, Z []float32)
+TEXT ·Sxmuleyplusz(SB), 7, $0
 	MOVQ	X_data+0(FP), SI
 	MOVQ	X_len+8(FP), BP
 	MOVQ	Y_data+24(FP), CX
