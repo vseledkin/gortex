@@ -26,7 +26,7 @@ type PyramidClassifier struct {
 }
 
 func (p *PyramidClassifier) ComposeName() string {
-	return fmt.Sprintf("pyramidWL.ft.h%d.o%d.e%d.json", p.EmbeddingSize, p.HiddenSize, p.OutputSize)
+	return fmt.Sprintf("pyramid.ft.h%d.o%d.e%d.json", p.EmbeddingSize, p.HiddenSize, p.OutputSize)
 }
 
 func (p PyramidClassifier) Create() (*PyramidClassifier, error) {
