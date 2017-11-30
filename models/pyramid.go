@@ -1,8 +1,8 @@
 package models
 
 import (
-	"github.com/vseledkin/gortex"
 	"fmt"
+	"github.com/vseledkin/gortex"
 	"log"
 	"math"
 )
@@ -17,16 +17,16 @@ type PyramidClassifier struct {
 	Embed          func(text string) []float32
 	Parameters     map[string]*gortex.Matrix
 	Representation *gortex.Matrix
-	Bos, HBos      *gortex.Matrix // begin sequence symbol
+	Bos            *gortex.Matrix // begin sequence symbol
 	Eos, HEos      *gortex.Matrix // end sequence symbol also used as 2^Height padding
-	Who            *gortex.Matrix
+	Whos           []*gortex.Matrix
 	Logits         *gortex.Matrix
 	Name           string
-	Updates       map[string]float32
+	Updates        map[string]float32
 }
 
 func (p *PyramidClassifier) ComposeName() string {
-	return fmt.Sprintf("pyramid.ft.h%d.o%d.e%d.json", p.EmbeddingSize, p.HiddenSize, p.OutputSize)
+	return fmt.Sprintf("pyramidWL.ft.h%d.o%d.e%d.json", p.EmbeddingSize, p.HiddenSize, p.OutputSize)
 }
 
 func (p PyramidClassifier) Create() (*PyramidClassifier, error) {
@@ -37,6 +37,7 @@ func (p PyramidClassifier) Create() (*PyramidClassifier, error) {
 	// create pyramid levels
 	p.Levels = make([]*gortex.Matrix, p.Height)
 	p.Biases = make([]*gortex.Matrix, p.Height)
+	p.Whos = make([]*gortex.Matrix, p.Height)
 	p.Updates = make(map[string]float32)
 	for l := range make([]struct{}, p.Height) {
 		if l == 0 { // input layer
@@ -45,23 +46,22 @@ func (p PyramidClassifier) Create() (*PyramidClassifier, error) {
 			p.Levels[l] = gortex.RandXavierMat(p.HiddenSize, 2*p.HiddenSize)
 		}
 		p.Biases[l] = gortex.RandXavierMat(p.HiddenSize, 1)
+		p.Whos[l] = gortex.RandXavierMat(p.OutputSize, p.HiddenSize)
 	}
-	p.Who = gortex.RandXavierMat(p.OutputSize, p.HiddenSize)
 	p.Bos = gortex.RandXavierMat(p.EmbeddingSize, 1)
 	p.Eos = gortex.RandXavierMat(p.EmbeddingSize, 1)
-	p.HBos = gortex.RandXavierMat(p.HiddenSize, 1)
+
 	p.HEos = gortex.RandXavierMat(p.HiddenSize, 1)
 
 	p.Parameters = map[string]*gortex.Matrix{
-		"Who":  p.Who,
 		"Bos":  p.Bos,
 		"Eos":  p.Eos,
-		"HBos": p.HBos,
 		"HEos": p.HEos,
 	}
 	for l := range p.Levels {
-		p.Parameters[fmt.Sprintf("L%dw",l)] = p.Levels[l]
-		p.Parameters[fmt.Sprintf("L%db",l)] = p.Biases[l]
+		p.Parameters[fmt.Sprintf("L%dw", l)] = p.Levels[l]
+		p.Parameters[fmt.Sprintf("L%db", l)] = p.Biases[l]
+		p.Parameters[fmt.Sprintf("L%dWho", l)] = p.Whos[l]
 	}
 
 	return &p, nil
@@ -108,22 +108,22 @@ func (p *PyramidClassifier) Forward(G *gortex.Graph, tokens []string) (class uin
 		//log.Printf("level %d padded inputs %d\n", l, L)
 		for t := range embedings {
 			embedings[t] = G.Relu(G.Add(G.Mul(p.Levels[l], G.Concat(embedings[2*t], embedings[2*t+1])), p.Biases[l]))
-			p.Updates[fmt.Sprintf("L%dw",l)]++
-			p.Updates[fmt.Sprintf("L%db",l)]++
+			p.Updates[fmt.Sprintf("L%dw", l)]++
+			p.Updates[fmt.Sprintf("L%db", l)]++
 			if 2*t+1 == len(embedings)-1 {
 				embedings = embedings[:L/2]
 				break
 			}
 		}
 		if len(embedings) == 1 {
+			p.Logits = G.Mul(p.Whos[l], embedings[0])
+			p.Updates[fmt.Sprintf("L%dWho", l)]++
 			break
 		}
 	}
 	if len(embedings) != 1 {
 		log.Fatalf("pyramid with height %d can fit sequence of len %d but got %d at the top on sequence of len %d", p.Height, int(math.Pow(2.0, float64(p.Height))), len(embedings), len(tokens))
 	}
-	p.Logits = G.Mul(p.Who, embedings[0])
-	p.Updates["Who"]++
 	class, confidence = gortex.MaxIV(gortex.Softmax(p.Logits))
 	return
 }
