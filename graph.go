@@ -431,6 +431,23 @@ func (g *Graph) EMul(m1, m2 *Matrix, messages ...string) *Matrix {
 	return out
 }
 
+func (g *Graph) ReplicateScalar(m *Matrix, n int) *Matrix {
+	if m.Numel() != 1 {
+		panic(fmt.Errorf("can only accept scalar matrix of numel 1 but %d givet", m.Numel()))
+	}
+	out := Mat(n, 1)
+	assembler.Sset(m.W[0], out.W)
+	if g.NeedsBackprop {
+		g.backprop = append(g.backprop, func() {
+			// copy gradients
+			for i := range out.DW {
+				m.DW[0] += out.DW[i]
+			}
+		})
+	}
+	return out
+}
+
 // Concatenate two or more vectors
 func (g *Graph) Concat(m ...*Matrix) *Matrix {
 	L := len(m)
