@@ -15,10 +15,9 @@ func TestSscale(t *testing.T) {
 }
 
 func BenchmarkSscale(b *testing.B) {
-	vectorScalar2VectorBench(sscale, b)
+	scalarVector2VectorBench(sscale, b)
 }
 
 func BenchmarkOptimizedSscale(b *testing.B) {
-	vectorScalar2VectorBench(Sscale, b)
+	scalarVector2VectorBench(Sscale, b)
 }
-

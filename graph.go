@@ -200,26 +200,19 @@ func (g *Graph) Sub(m1, m2 *Matrix) *Matrix {
 	return out
 }
 
-func (g *Graph) mulv(m1, m2 *Matrix, messages ...string) *Matrix {
+func (g *Graph) mulv(m1, m2 *Matrix) *Matrix {
 	// multiply matrix and vector m1 * m2
-	if m1.Columns != m2.Rows {
-		panic(fmt.Errorf("matmul dimensions misaligned m1.columns=%d must be equal m2.rows=%d", m1.Columns, m2.Rows))
-	}
 
 	out := Mat(m1.Rows, 1)
+
 	for i := 0; i < m1.Rows; i++ { // loop over rows of m1
 		out.W[i] = assembler.Sdot(m1.W[m1.Columns*i:m1.Columns*i+m1.Columns], m2.W)
 	}
-
 	if g.NeedsBackprop {
 		g.backprop = append(g.backprop, func() {
 			for i := 0; i < m1.Rows; i++ { // loop over rows of m1
 				assembler.Saxpy(out.DW[i], m2.W, m1.DW[m1.Columns*i:m1.Columns*i+m1.Columns])
 				assembler.Saxpy(out.DW[i], m1.W[m1.Columns*i:m1.Columns*i+m1.Columns], m2.DW)
-			}
-			if len(messages) > 0 && g.Print {
-				fmt.Printf("%s Mul In1(%p N:%f GN:%f) In2(%p N:%f GN:%f) Out(%p N:%f GN:%f)\n",
-					messages[0], m1, m1.Norm(), m1.NormGradient(), m2, m2.Norm(), m2.NormGradient(), out, out.Norm(), out.NormGradient())
 			}
 		})
 	}

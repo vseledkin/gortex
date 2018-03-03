@@ -2,4 +2,4 @@
 
 package assembler
 
-func Sxmuley(X, Y []float32)
+func Sclean(X []float32)
