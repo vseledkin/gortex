@@ -2,7 +2,6 @@ package assembler
 
 import "testing"
 
-
 //Sset  set all components of a vector to a
 func sset(a float32, x []float32) {
 	for i := range x {
@@ -14,7 +13,9 @@ func TestSset(t *testing.T) {
 	scalarVector2VectorTest(Sset, sset, t)
 }
 func TestSsetAVX(t *testing.T) {
-	scalarVector2VectorTest(SsetAVX, sset, t)
+	if useAVX {
+		scalarVector2VectorTest(SsetAVX, sset, t)
+	}
 }
 
 func BenchmarkSset(b *testing.B) {
@@ -26,5 +27,7 @@ func BenchmarkOptimizedSset(b *testing.B) {
 }
 
 func BenchmarkOptimizedSsetAVX(b *testing.B) {
-	scalarVector2VectorBench(SsetAVX, b)
+	if useAVX {
+		scalarVector2VectorBench(SsetAVX, b)
+	}
 }

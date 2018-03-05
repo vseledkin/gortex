@@ -11,11 +11,15 @@ func sxpy(X, Y []float32) {
 }
 
 func TestSxpySSE4(t *testing.T) {
-	funcVectorVectorTest(SxpySSE4, sxpy, t)
+	if useSSE4 {
+		funcVectorVectorTest(SxpySSE4, sxpy, t)
+	}
 }
 
 func TestSxpyAvx(t *testing.T) {
-	funcVectorVectorTest(SxpyAvx, sxpy, t)
+	if useAVX {
+		funcVectorVectorTest(SxpyAvx, sxpy, t)
+	}
 }
 
 func BenchmarkSxpy(b *testing.B) { //benchmark function starts with "Benchmark" and takes a pointer to type testing.B
@@ -23,9 +27,13 @@ func BenchmarkSxpy(b *testing.B) { //benchmark function starts with "Benchmark" 
 }
 
 func BenchmarkSxpySSE4Optimized(b *testing.B) { //benchmark function starts with "Benchmark" and takes a pointer to type testing.B
-	funcVectorVectorBench(SxpySSE4, b)
+	if useSSE4 {
+		funcVectorVectorBench(SxpySSE4, b)
+	}
 }
 
 func BenchmarkSxpyAvxOptimized(b *testing.B) { //benchmark function starts with "Benchmark" and takes a pointer to type testing.B
-	funcVectorVectorBench(SxpyAvx, b)
+	if useAVX {
+		funcVectorVectorBench(SxpyAvx, b)
+	}
 }

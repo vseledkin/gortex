@@ -4,8 +4,6 @@ import (
 	"testing"
 )
 
-
-
 func sdot(X, Y []float32) (dot float32) {
 	for i := range X {
 		dot += X[i] * Y[i]
@@ -14,11 +12,15 @@ func sdot(X, Y []float32) (dot float32) {
 }
 
 func TestSdotSSE4(t *testing.T) {
-	funcVectorVector2scalarTest(SdotSSE4, sdot, t)
+	if useSSE4 {
+		funcVectorVector2scalarTest(SdotSSE4, sdot, t)
+	}
 }
 
 func TestSdotAvx(t *testing.T) {
-	funcVectorVector2scalarTest(SdotAvx, sdot, t)
+	if useAVX {
+		funcVectorVector2scalarTest(SdotAvx, sdot, t)
+	}
 }
 
 func BenchmarkSdot(b *testing.B) { //benchmark function starts with "Benchmark" and takes a pointer to type testing.B
@@ -26,9 +28,13 @@ func BenchmarkSdot(b *testing.B) { //benchmark function starts with "Benchmark" 
 }
 
 func BenchmarkSdotSSE4Optimized(b *testing.B) { //benchmark function starts with "Benchmark" and takes a pointer to type testing.B
-	funcVectorVector2scalarBench(SdotSSE4, b)
+	if useSSE4 {
+		funcVectorVector2scalarBench(SdotSSE4, b)
+	}
 }
 
 func BenchmarkSdotAvxOptimized(b *testing.B) { //benchmark function starts with "Benchmark" and takes a pointer to type testing.B
-	funcVectorVector2scalarBench(SdotAvx, b)
+	if useAVX {
+		funcVectorVector2scalarBench(SdotAvx, b)
+	}
 }
