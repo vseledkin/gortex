@@ -74,6 +74,10 @@ func PrintZeroGradient(model map[string]*Matrix) {
 	}
 }
 
+func NormalizeToUnitLength(m *Matrix) {
+	assembler.Sscale(1/assembler.L2(m.W), m.W)
+}
+
 func InitWeights(model map[string]*Matrix, dev float32) {
 	for _, m := range model {
 		for i := range m.W {
