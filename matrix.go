@@ -50,7 +50,7 @@ func (m *Matrix) Get(row, col int) float32 {
 	if ix >= 0 && ix < len(m.W) {
 		return m.W[ix]
 	} else {
-		panic(fmt.Errorf("mat element access error index %Columns out of range", ix))
+		panic(fmt.Errorf("mat element access error index %d out of range", ix))
 	}
 }
 
@@ -59,7 +59,7 @@ func (m *Matrix) Set(row, col int, v float32) {
 	if ix >= 0 && ix < len(m.W) {
 		m.W[ix] = v
 	} else {
-		panic(fmt.Errorf("mat element access error index %Columns out of range", ix))
+		panic(fmt.Errorf("mat element access error index %d out of range", ix))
 	}
 }
 
@@ -70,7 +70,7 @@ func (m *Matrix) GetGradient(row, col int) float32 {
 	if ix >= 0 && ix < len(m.DW) {
 		return m.DW[ix]
 	} else {
-		panic(fmt.Errorf("mat element access error index %Columns out of range", ix))
+		panic(fmt.Errorf("mat element access error index %d out of range", ix))
 	}
 }
 
@@ -79,7 +79,7 @@ func (m *Matrix) SetGradient(row, col int, v float32) {
 	if ix >= 0 && ix < len(m.DW) {
 		m.DW[ix] = v
 	} else {
-		panic(fmt.Errorf("mat element access error index %Columns out of range", ix))
+		panic(fmt.Errorf("mat element access error index %d out of range", ix))
 	}
 }
 
@@ -88,7 +88,7 @@ func (m *Matrix) AddGradient(row, col int, v float32) {
 	if ix >= 0 && ix < len(m.DW) {
 		m.DW[ix] += v
 	} else {
-		panic(fmt.Errorf("mat element access error index %Columns out of range", ix))
+		panic(fmt.Errorf("mat element access error index %d out of range", ix))
 	}
 }
 

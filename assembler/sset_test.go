@@ -12,6 +12,7 @@ func sset(a float32, x []float32) {
 func TestSset(t *testing.T) {
 	scalarVector2VectorTest(Sset, sset, t)
 }
+
 func TestSsetAVX(t *testing.T) {
 	if useAVX {
 		scalarVector2VectorTest(SsetAVX, sset, t)
