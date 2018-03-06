@@ -2,8 +2,8 @@
 
 #include "textflag.h"
 
-//func Sxmuley(X []float32, Y []float32)
-TEXT ·Sxmuley(SB), 7, $0
+//func SxmySSE4(X []float32, Y []float32)
+TEXT ·SxmySSE4(SB), 7, $0
 	MOVQ	X_data+0(FP), SI
 	MOVQ	X_len+8(FP), BP
 	MOVQ	Y_data+24(FP), DI
@@ -12,11 +12,9 @@ TEXT ·Sxmuley(SB), 7, $0
 	JL		rest	// There are less than 4 pairs to process
 	simd_loop:
 		// Load four pairs and scale
-		MOVUPS	(SI), X2
-		MOVUPS	(DI), X3
-		// Save sum
-		MULPS	X2, X3
-		MOVUPS	X3, (DI)
+		MOVUPS	(SI), X1
+		MULPS	(DI), X1
+		MOVUPS	X1, (DI)
 
 		// Update data pointers
 		ADDQ	$16, SI

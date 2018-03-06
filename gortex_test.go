@@ -12,6 +12,29 @@ import (
 	"github.com/vseledkin/gortex/assembler"
 )
 
+func TestConv(t *testing.T) {
+	k := 3
+	s := 5
+	l := 3
+	x := make([]int, l)
+	for i := range x {
+		x[i] = i
+	}
+
+	o := (len(x)-k)/s + 1
+	t.Logf("length: %d kernel: %d shift:%d outputs:%d", l, k, s, o)
+	outputs := make([][]int, o)
+	for i := range outputs {
+		outputs[i] = x[i*s:s*i+k]
+		t.Logf("%d %+v", i, outputs[i])
+	}
+
+	t.Logf("length=%d outputs=%d x = %+v", l, o, x)
+	for i := range outputs {
+		t.Logf("%d %+v", i, outputs[i])
+	}
+}
+
 func TestMultinomial(t *testing.T) {
 	n := 3
 	p := RandMat(n, 1)
@@ -53,10 +76,10 @@ func TestMatrixMul(t *testing.T) {
 
 	}
 	if h.Get(0, 0) != 14 {
-		t.Fatalf("h[0][0] must be 14 but %d.", h.Get(0, 0))
+		t.Fatalf("h[0][0] must be 14 but %f.", h.Get(0, 0))
 	}
 	if h.Get(1, 0) != 32 {
-		t.Fatalf("h[1][0] must be 32 but %d.", h.Get(1, 0))
+		t.Fatalf("h[1][0] must be 32 but %f.", h.Get(1, 0))
 	}
 }
 
@@ -79,10 +102,10 @@ func TestMatrixMulAdd(t *testing.T) {
 
 	}
 	if h.Get(0, 0) != 15 {
-		t.Fatalf("h[0][0] must be 15 but %d.", h.Get(0, 0))
+		t.Fatalf("h[0][0] must be 15 but %f.", h.Get(0, 0))
 	}
 	if h.Get(1, 0) != 34 {
-		t.Fatalf("h[1][0] must be 34 but %d.", h.Get(1, 0))
+		t.Fatalf("h[1][0] must be 34 but %f.", h.Get(1, 0))
 	}
 
 }
@@ -257,7 +280,7 @@ func TestGruRnnLanguageModel(t *testing.T) {
 				term_id = Multinomial(Softmax(logits))
 				token := dic.TokenByID(term_id)
 				fmt.Printf("%s", token)
-				if token == "." || token == "?" || token == "?" {
+				if token == "." || token == "?" || token == "!" {
 					break
 				}
 				//t.Logf("step: %d crossentropy: %f perplexity: %f probability: %f\n", time, crossentropy, perplexity, probability)
@@ -523,7 +546,6 @@ func BenchmarkOptimizedSoftmax(b *testing.B) {
 		Softmax(x)
 	}
 }
-
 
 func TestAutoencoder(t *testing.T) {
 	// maintain random seed

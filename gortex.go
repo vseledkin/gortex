@@ -74,6 +74,10 @@ func PrintZeroGradient(model map[string]*Matrix) {
 	}
 }
 
+func NormalizeToUnitLength(m *Matrix) {
+	assembler.Sscale(1/assembler.L2(m.W), m.W)
+}
+
 func InitWeights(model map[string]*Matrix, dev float32) {
 	for _, m := range model {
 		for i := range m.W {
@@ -91,6 +95,26 @@ func ResetGradients(model map[string]*Matrix) {
 //Softmax probability distribution interpretation of any vector/matrix
 func Softmax(m *Matrix) *Matrix {
 	out := Mat(m.Rows, m.Columns) // probability volume
+	maxval := m.W[assembler.Ismax(m.W)]
+	for i := range m.W {
+		out.W[i] = float32(math.Exp(float64(m.W[i] - maxval)))
+	}
+	sum := assembler.Sum(out.W)
+	assembler.Sscale(1/sum, out.W)
+
+	// no backward pass here needed
+	// since we will use the computed probabilities outside
+	// to set gradients directly on m
+	return out
+}
+
+//Softmax probability distribution interpretation of any vector/matrix
+func SoftmaxT(m *Matrix, T float32) *Matrix {
+	out := Mat(m.Rows, m.Columns) // probability volume
+	if T <= 0 {
+		panic("Wrong temperture value, must be (0,Inf)")
+	}
+	assembler.Sscale(1/T, m.W)
 	maxval := m.W[assembler.Ismax(m.W)]
 	for i := range m.W {
 		out.W[i] = float32(math.Exp(float64(m.W[i] - maxval)))

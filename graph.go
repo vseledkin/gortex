@@ -200,32 +200,92 @@ func (g *Graph) Sub(m1, m2 *Matrix) *Matrix {
 	return out
 }
 
-func (g *Graph) mulv(m1, m2 *Matrix, messages ...string) *Matrix {
+func (g *Graph) mulv(m1, m2 *Matrix) *Matrix {
 	// multiply matrix and vector m1 * m2
-	if m1.Columns != m2.Rows {
-		panic(fmt.Errorf("matmul dimensions misaligned m1.columns=%d must be equal m2.rows=%d", m1.Columns, m2.Rows))
-	}
 
 	out := Mat(m1.Rows, 1)
+
 	for i := 0; i < m1.Rows; i++ { // loop over rows of m1
 		out.W[i] = assembler.Sdot(m1.W[m1.Columns*i:m1.Columns*i+m1.Columns], m2.W)
 	}
-
 	if g.NeedsBackprop {
 		g.backprop = append(g.backprop, func() {
 			for i := 0; i < m1.Rows; i++ { // loop over rows of m1
 				assembler.Saxpy(out.DW[i], m2.W, m1.DW[m1.Columns*i:m1.Columns*i+m1.Columns])
 				assembler.Saxpy(out.DW[i], m1.W[m1.Columns*i:m1.Columns*i+m1.Columns], m2.DW)
 			}
-			if len(messages) > 0 && g.Print {
-				fmt.Printf("%s Mul In1(%p N:%f GN:%f) In2(%p N:%f GN:%f) Out(%p N:%f GN:%f)\n",
-					messages[0], m1, m1.Norm(), m1.NormGradient(), m2, m2.Norm(), m2.NormGradient(), out, out.Norm(), out.NormGradient())
+		})
+	}
+	return out
+}
+
+func (g *Graph) PackColumnVectors(m1 []*Matrix) *Matrix {
+	columns := len(m1)
+	rows := m1[0].Rows
+
+	out := Mat(rows, columns)
+	for r := 0; r < rows; r++ {
+		for c := 0; c < columns; c++ {
+			out.W[columns*r+c] = m1[c].W[r]
+		}
+	}
+	if g.NeedsBackprop {
+		g.backprop = append(g.backprop, func() {
+			for r := 0; r < rows; r++ { // loop over rows of m1
+				for c := 0; c < columns; c++ { // loop over columns of m1
+					m1[c].DW[r] += out.DW[columns*r+c]
+				}
 			}
 		})
 	}
 	return out
 }
 
+func (g *Graph) Conv(m1 *Matrix, m2 *Matrix) *Matrix {
+	// multiply matrices m1 * m2
+	if m1.Rows != m2.Rows {
+		panic(fmt.Errorf("matmul dimensions misaligned m1.rows=%d must be equal m2.rows=%d", m1.Rows, m2.Rows))
+	}
+	if m1.Columns != m2.Columns {
+		panic(fmt.Errorf("matmul dimensions misaligned m1.columns=%d must be equal m2.columns=%d", m1.Columns, m2.Columns))
+	}
+
+	return g.Sum(g.EMul(m1, m2))
+}
+
+/*
+func (g *Graph) MulvConv(m1 []*Matrix, m2 *Matrix) *Matrix {
+	// multiply matrices m1 * m2
+	if len(m1) == 0 {
+		panic(fmt.Errorf("matmul dimensions misaligned m1.columns=%d must be equal m2.rows=%d", len(m1), m2.Rows))
+	}
+	if len(m1) != m2.Rows {
+		panic(fmt.Errorf("matmul dimensions misaligned m1.columns=%d must be equal m2.rows=%d", len(m1), m2.Rows))
+	}
+	columns := len(m1)
+	rows := len(m1[0].W)
+
+	out := Mat(rows, 1)
+	for r := 0; r < rows; r++ { // loop over rows of m1
+		for c := 0; c < columns; c++ {
+			out.W[r] += m2.W[c] * m1[c].W[r] //TODO: place to heavily optimize!!!
+		}
+	}
+
+	if g.NeedsBackprop {
+		g.backprop = append(g.backprop, func() {
+			for r := 0; r < rows; r++ { // loop over rows of m1
+				for c := 0; c < columns; c++ { // loop over columns of m1
+					m1[c].DW[r] += out.DW[r] * m2.W[c] //TODO: place to heavily optimize!!!
+					m2.DW[c] += out.DW[r] * m1[c].W[r]
+				}
+			}
+		})
+	}
+
+	return g.Sum(out) // output of this convolution, backprop within!
+}
+*/
 func (g *Graph) Mul(m1, m2 *Matrix, messages ...string) *Matrix {
 	// multiply matrices m1 * m2
 	if m1.Columns != m2.Rows {
@@ -300,7 +360,7 @@ func (g *Graph) Attention(m []*Matrix, v *Matrix) *Matrix {
 
 // Sum of weights of x
 func (g *Graph) Sum(x *Matrix) *Matrix {
-	out := Mat(x.Rows, x.Columns)
+	out := Mat(1, 1)
 	out.W[0] = assembler.Sum(x.W)
 	if g.NeedsBackprop {
 		g.backprop = append(g.backprop, func() {

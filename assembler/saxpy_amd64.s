@@ -1,5 +1,10 @@
-//func Saxpy(alpha float32, X []float32, Y []float32)
-TEXT ·Saxpy(SB), 7, $0
+//+build amd64,!noasm
+
+#include "textflag.h"
+
+
+//func SaxpySSE4(alpha float32, X []float32, Y []float32)
+TEXT ·SaxpySSE4(SB), 7, $0
 	MOVSS	alpha+0(FP), X0
 	MOVQ	X_data+8(FP), SI
 	MOVQ	X_len+16(FP), BP
@@ -9,7 +14,6 @@ TEXT ·Saxpy(SB), 7, $0
 	JL		rest	// There are less than 4 pairs to process
 	// Setup four alphas in X0
 	SHUFPS	$0, X0, X0
-	
 
 	simd_loop:
 		// Load four pairs and scale
