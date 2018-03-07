@@ -12,6 +12,24 @@ import (
 	"github.com/vseledkin/gortex/assembler"
 )
 
+func TestDilatedConv(t *testing.T) {
+	kernelSizes := []int{3,3}
+	c := &DilatedTemporalConvolution{KernelSizes: kernelSizes, NumberOfKernels: []int{8,16}}
+	x := make([]int, 11)
+
+	for i := range x {
+		x[i] = i
+	}
+
+	for l := range kernelSizes {
+		for i := range x {
+			field := c.ReceptiveField(i, l, x)
+			t.Logf("layer: %d position: %d field: %+v", l, i, field)
+		}
+	}
+
+}
+
 func TestConv(t *testing.T) {
 	k := 3
 	s := 5
