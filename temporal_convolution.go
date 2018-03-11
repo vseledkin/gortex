@@ -8,7 +8,7 @@ import (
 // Long Short Term Memory cell
 
 type TemporalConvolution struct {
-	Kernels     []*Matrix
+	Kernels     []*Matrix // keep kernels as set of column vectors for calc speed
 	Biases      *Matrix
 	Pads        []*Matrix // learnable pads !!
 	KernelSize  int

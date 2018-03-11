@@ -244,10 +244,10 @@ func (g *Graph) PackColumnVectors(m1 []*Matrix) *Matrix {
 func (g *Graph) Conv(m1 *Matrix, m2 *Matrix) *Matrix {
 	// multiply matrices m1 * m2
 	if m1.Rows != m2.Rows {
-		panic(fmt.Errorf("matmul dimensions misaligned m1.rows=%d must be equal m2.rows=%d", m1.Rows, m2.Rows))
+		panic(fmt.Errorf("conv dimensions misaligned m1.rows=%d must be equal m2.rows=%d", m1.Rows, m2.Rows))
 	}
 	if m1.Columns != m2.Columns {
-		panic(fmt.Errorf("matmul dimensions misaligned m1.columns=%d must be equal m2.columns=%d", m1.Columns, m2.Columns))
+		panic(fmt.Errorf("conv dimensions misaligned m1.columns=%d must be equal m2.columns=%d", m1.Columns, m2.Columns))
 	}
 
 	return g.Sum(g.EMul(m1, m2))

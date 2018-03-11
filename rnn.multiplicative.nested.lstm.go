@@ -8,7 +8,7 @@ import (
 
 // Long Short Term Memory cell
 
-type MultiplicativeLSTM struct {
+type MultiplicativeNestedLSTM struct {
 	Wmx *Matrix
 	Umh *Matrix
 
@@ -29,16 +29,18 @@ type MultiplicativeLSTM struct {
 	Bc *Matrix
 
 	Who *Matrix
+
+	innerMemory *MultiplicativeLSTM
 }
 
-func (lstm *MultiplicativeLSTM) ForgetGateTrick(v float32) {
+func (lstm *MultiplicativeNestedLSTM) ForgetGateTrick(v float32) {
 	if lstm.Bf != nil {
 		assembler.Sset(v, lstm.Bf.W)
 	}
 }
 
-func MakeMultiplicativeLSTM(x_size, h_size, out_size int) *MultiplicativeLSTM {
-	rnn := new(MultiplicativeLSTM)
+func MakeMultiplicativeNestedLSTM(x_size, h_size, out_size int) *MultiplicativeNestedLSTM {
+	rnn := new(MultiplicativeNestedLSTM)
 	rnn.Wmx = RandXavierMat(h_size, x_size)
 	rnn.Umh = RandXavierMat(h_size, h_size)
 
@@ -59,11 +61,13 @@ func MakeMultiplicativeLSTM(x_size, h_size, out_size int) *MultiplicativeLSTM {
 	rnn.Bc = RandXavierMat(h_size, 1)
 
 	rnn.Who = RandXavierMat(out_size, h_size)
+
+	rnn.innerMemory = MakeMultiplicativeLSTM(h_size, h_size, h_size)
 	return rnn
 }
 
-func (rnn *MultiplicativeLSTM) GetParameters(namespace string) map[string]*Matrix {
-	return map[string]*Matrix{
+func (rnn *MultiplicativeNestedLSTM) GetParameters(namespace string) map[string]*Matrix {
+	params := map[string]*Matrix{
 		namespace + "_Wmx": rnn.Wmx,
 		namespace + "_Umh": rnn.Umh,
 
@@ -85,9 +89,14 @@ func (rnn *MultiplicativeLSTM) GetParameters(namespace string) map[string]*Matri
 
 		namespace + "_Who": rnn.Who,
 	}
+
+	for k, v := range rnn.innerMemory.GetParameters(namespace + "_inner") {
+		params[k] = v
+	}
+	return params
 }
 
-func (rnn *MultiplicativeLSTM) SetParameters(namespace string, parameters map[string]*Matrix) error {
+func (rnn *MultiplicativeNestedLSTM) SetParameters(namespace string, parameters map[string]*Matrix) error {
 	for k, v := range rnn.GetParameters(namespace) {
 		fmt.Printf("Look for %s parameters\n", k)
 		if m, ok := parameters[k]; ok {
@@ -100,7 +109,7 @@ func (rnn *MultiplicativeLSTM) SetParameters(namespace string, parameters map[st
 	return nil
 }
 
-func (rnn *MultiplicativeLSTM) Step(g *Graph, x, h_prev, c_prev *Matrix) (h, c, y *Matrix) {
+func (rnn *MultiplicativeNestedLSTM) Step(g *Graph, x, h_prev, c_prev, c_previn *Matrix) (h, c, cin, y *Matrix) {
 	// make MultiplicativeLSTM computation graph at one time-step
 
 	m := g.EMul(g.Mul(rnn.Wmx, x), g.Mul(rnn.Umh, h_prev))
@@ -108,8 +117,11 @@ func (rnn *MultiplicativeLSTM) Step(g *Graph, x, h_prev, c_prev *Matrix) (h, c, 
 	i := g.Sigmoid(g.Add(g.Add(g.Mul(rnn.Wi, x), g.Mul(rnn.Ui, m)), rnn.Bi))
 	o := g.Sigmoid(g.Add(g.Add(g.Mul(rnn.Wo, x), g.Mul(rnn.Uo, m)), rnn.Bo))
 	c = g.Tanh(g.Add(g.Add(g.Mul(rnn.Wc, x), g.Mul(rnn.Uc, m)), rnn.Bc))
-	c = g.Add(g.EMul(f, c_prev), g.EMul(i, c))
-	h = g.EMul(o, g.Tanh(c))
+
+	//c = g.Add(g.EMul(f, c_prev), g.EMul(i, c))
+	c_new, cin, _ := rnn.innerMemory.Step(g, g.EMul(i, c), g.EMul(f, c_prev), c_previn)
+
+	h = g.EMul(o, g.Tanh(c_new))
 
 	y = g.Mul(rnn.Who, h)
 	return
