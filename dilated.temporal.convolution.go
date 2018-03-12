@@ -6,19 +6,21 @@ import (
 )
 
 type DilatedTemporalConvolution struct {
-	Kernels [][]*Matrix // any number of layers each having any number of kernels of size input X 3
-	Biases  []*Matrix
-	Wo      *Matrix
-	inputs  [][]*Matrix `json:"-"`
-	zeros   []*Matrix
+	Kernels    [][]*Matrix // any number of layers each having any number of kernels of size input X 3
+	Biases     []*Matrix
+	ConvBiases []*Matrix
+	Wo         []*Matrix
+	inputs     [][]*Matrix `json:"-"`
+	zeros      []*Matrix
 }
 
 func MakeDilatedTemporalConvolution(inputSize, outputSize int, kernelSizes []int) *DilatedTemporalConvolution {
 	dtc := new(DilatedTemporalConvolution)
-	dtc.Wo = RandXavierMat(outputSize, kernelSizes[len(kernelSizes)-1])
 
 	dtc.Kernels = make([][]*Matrix, len(kernelSizes))
 	dtc.Biases = make([]*Matrix, len(kernelSizes))
+	dtc.ConvBiases = make([]*Matrix, len(kernelSizes))
+	dtc.Wo = make([]*Matrix, len(kernelSizes))
 	inputSizes := []int{inputSize}
 	inputSizes = append(inputSizes, kernelSizes...)
 	dtc.zeros = make([]*Matrix, len(inputSizes))
@@ -27,8 +29,11 @@ func MakeDilatedTemporalConvolution(inputSize, outputSize int, kernelSizes []int
 		for j := range dtc.Kernels[i] {
 			dtc.Kernels[i][j] = RandXavierMat(inputSizes[i], 3)
 		}
+		dtc.ConvBiases[i] = RandXavierMat(kernelSizes[i], 1)
+		dtc.Wo[i] = RandXavierMat(kernelSizes[i], kernelSizes[i])
 		dtc.Biases[i] = RandXavierMat(kernelSizes[i], 1)
 	}
+
 	for i, n := range inputSizes {
 		dtc.zeros[i] = Mat(n, 1)
 	}
@@ -85,8 +90,14 @@ func (dtc *DilatedTemporalConvolution) GetParameters(namespace string) map[strin
 	for layer, bias := range dtc.Biases {
 		p[fmt.Sprintf("%s_layer%d_bias", namespace, layer)] = bias
 	}
+	for layer, bias := range dtc.ConvBiases {
+		p[fmt.Sprintf("%s_layer%d_conv_bias", namespace, layer)] = bias
+	}
+	for layer, wo := range dtc.Wo {
+		p[fmt.Sprintf("%s_layer%d_wo", namespace, layer)] = wo
+	}
 
-	p[fmt.Sprintf("%s_Wo", namespace)] = dtc.Wo
+	//p[fmt.Sprintf("%s_Wo", namespace)] = dtc.Wo
 	return p
 }
 
@@ -107,7 +118,8 @@ func (dtc *DilatedTemporalConvolution) LookFullStep(g *Graph, layer, t int) {
 		for i := range layerKernels {
 			output[i] = g.Conv(input, layerKernels[i])
 		}
-		dtc.inputs[layer+1][t] = g.Relu(g.Add(g.Concat(output...), dtc.Biases[layer]))
+		conv_output := g.Relu(g.Add(g.Concat(output...), dtc.ConvBiases[layer]))
+		dtc.inputs[layer+1][t] = g.Relu(g.Add(g.Mul(dtc.Wo[layer], conv_output), dtc.Biases[layer]))
 
 	}
 	return
@@ -161,7 +173,7 @@ func (dtc *DilatedTemporalConvolution) LookPastStep(g *Graph, t int) (y *Matrix)
 	if dtc.inputs[L][t] == nil { // if inputs are not ready
 		dtc.lookPastStep(g, L, t)
 	}
-	return g.Mul(dtc.Wo, dtc.inputs[L+1][t])
+	return dtc.inputs[L+1][t]
 }
 
 func (dtc *DilatedTemporalConvolution) FullStep(g *Graph, t int) (y *Matrix) {
@@ -169,5 +181,5 @@ func (dtc *DilatedTemporalConvolution) FullStep(g *Graph, t int) (y *Matrix) {
 	if dtc.inputs[L][t] == nil { // if inputs are not ready
 		dtc.LookFullStep(g, L, t)
 	}
-	return g.Mul(dtc.Wo, dtc.inputs[L+1][t])
+	return dtc.inputs[L+1][t]
 }
