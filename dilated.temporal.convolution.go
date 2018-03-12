@@ -2,7 +2,6 @@ package gortex
 
 import (
 	"fmt"
-	"log"
 	"github.com/vseledkin/gortex/assembler"
 )
 
@@ -100,9 +99,9 @@ func (dtc *DilatedTemporalConvolution) LookFullStep(g *Graph, layer, t int) {
 		}
 
 		// get receptive field for conv neuron
-		field, input := dtc.ReceptiveField(g, t, layer, dtc.inputs[layer])
+		_, input := dtc.ReceptiveField(g, t, layer, dtc.inputs[layer])
 
-		log.Printf("layer %d step %d input %+v", layer, t, field)
+		//log.Printf("layer %d step %d input %+v", layer, t, field)
 		layerKernels := dtc.Kernels[layer]
 		output := make([]*Matrix, len(layerKernels))
 		for i := range layerKernels {
