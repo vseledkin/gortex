@@ -2,7 +2,7 @@ package gortex
 
 import (
 	"fmt"
-	//"log"
+	"log"
 	"github.com/vseledkin/gortex/assembler"
 )
 
@@ -11,7 +11,7 @@ type DilatedTemporalConvolution struct {
 	Biases  []*Matrix
 	Wo      *Matrix
 	inputs  [][]*Matrix `json:"-"`
-	zeros   []*Matrix   `json:"-"`
+	zeros   []*Matrix
 }
 
 func MakeDilatedTemporalConvolution(inputSize, outputSize int, kernelSizes []int) *DilatedTemporalConvolution {
@@ -38,6 +38,7 @@ func MakeDilatedTemporalConvolution(inputSize, outputSize int, kernelSizes []int
 
 func (dtc *DilatedTemporalConvolution) ReceptiveField(g *Graph, i, layer int, x []*Matrix) (field []int, ret *Matrix) {
 	if i < len(x) && i >= 0 {
+
 		var input []*Matrix
 		pow := 1 << uint(layer)
 		if i > pow-1 {
@@ -54,6 +55,7 @@ func (dtc *DilatedTemporalConvolution) ReceptiveField(g *Graph, i, layer int, x 
 		} else {
 			input = append(input, dtc.zeros[layer])
 		}
+		//log.Printf("layer %d step %d input %v", layer, i, x)
 		ret = g.PackColumnVectors(input)
 		return
 	}
@@ -89,18 +91,18 @@ func (dtc *DilatedTemporalConvolution) GetParameters(namespace string) map[strin
 	return p
 }
 
-func (dtc *DilatedTemporalConvolution) lookFullStep(g *Graph, layer, t int) {
+func (dtc *DilatedTemporalConvolution) LookFullStep(g *Graph, layer, t int) {
 	// check if we have already computed nessesary outputs
 	if dtc.inputs[layer+1][t] == nil { // if not
 		// run recursion to calculate all nessesry prerequisites from lower layers
 		if layer > 0 {
-			dtc.lookFullStep(g, layer-1, t) // reqcursion!!!!!
+			dtc.LookFullStep(g, layer-1, t) // reqcursion!!!!!
 		}
 
 		// get receptive field for conv neuron
-		_, input := dtc.ReceptiveField(g, t, layer, dtc.inputs[layer])
+		field, input := dtc.ReceptiveField(g, t, layer, dtc.inputs[layer])
 
-		//log.Printf("layer %d step %d input %+v", layer, t, field)
+		log.Printf("layer %d step %d input %+v", layer, t, field)
 		layerKernels := dtc.Kernels[layer]
 		output := make([]*Matrix, len(layerKernels))
 		for i := range layerKernels {
@@ -151,7 +153,7 @@ func (dtc *DilatedTemporalConvolution) SetInput(input []*Matrix) {
 func (dtc *DilatedTemporalConvolution) AddInput(inp *Matrix) {
 	dtc.inputs[0] = append(dtc.inputs[0], inp)
 	for i := range dtc.Kernels {
-		dtc.inputs[i+1] = append(dtc.inputs[i+1],nil)
+		dtc.inputs[i+1] = append(dtc.inputs[i+1], nil)
 	}
 }
 
@@ -163,10 +165,10 @@ func (dtc *DilatedTemporalConvolution) LookPastStep(g *Graph, t int) (y *Matrix)
 	return g.Mul(dtc.Wo, dtc.inputs[L+1][t])
 }
 
-func (dtc *DilatedTemporalConvolution) LookFullStep(g *Graph, t int) (y *Matrix) {
+func (dtc *DilatedTemporalConvolution) FullStep(g *Graph, t int) (y *Matrix) {
 	L := len(dtc.Kernels) - 1
 	if dtc.inputs[L][t] == nil { // if inputs are not ready
-		dtc.lookFullStep(g, L, t)
+		dtc.LookFullStep(g, L, t)
 	}
 	return g.Mul(dtc.Wo, dtc.inputs[L+1][t])
 }
