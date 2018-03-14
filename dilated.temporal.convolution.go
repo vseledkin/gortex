@@ -6,38 +6,52 @@ import (
 )
 
 type DilatedTemporalConvolution struct {
-	Kernels    [][]*Matrix // any number of layers each having any number of kernels of size input X 3
-	Biases     []*Matrix
-	ConvBiases []*Matrix
-	Wo         []*Matrix
-	inputs     [][]*Matrix `json:"-"`
-	zeros      []*Matrix
+	Kernels     [][]*Matrix // any number of layers each having any number of kernels of size input X 3
+	Biases      []*Matrix
+	ConvBiases  []*Matrix
+	Gates       []*Matrix
+	KernelSizes []int
+	UseGates    bool
+	inputs      [][]*Matrix `json:"-"`
+	Zeros       []*Matrix
+
 }
 
-func MakeDilatedTemporalConvolution(inputSize, outputSize int, kernelSizes []int) *DilatedTemporalConvolution {
+func MakeDilatedTemporalConvolution(inputSize int, kernelSizes []int, useGates bool) *DilatedTemporalConvolution {
 	dtc := new(DilatedTemporalConvolution)
+	dtc.UseGates = useGates
+	dtc.KernelSizes = kernelSizes
 
 	dtc.Kernels = make([][]*Matrix, len(kernelSizes))
-	dtc.Biases = make([]*Matrix, len(kernelSizes))
+	if dtc.UseGates {
+		dtc.Biases = make([]*Matrix, len(kernelSizes))
+		dtc.Gates = make([]*Matrix, len(kernelSizes))
+	}
 	dtc.ConvBiases = make([]*Matrix, len(kernelSizes))
-	dtc.Wo = make([]*Matrix, len(kernelSizes))
 	inputSizes := []int{inputSize}
 	inputSizes = append(inputSizes, kernelSizes...)
-	dtc.zeros = make([]*Matrix, len(inputSizes))
+	dtc.Zeros = make([]*Matrix, len(inputSizes))
 	for i, n := range kernelSizes {
 		dtc.Kernels[i] = make([]*Matrix, n)
 		for j := range dtc.Kernels[i] {
 			dtc.Kernels[i][j] = RandXavierMat(inputSizes[i], 3)
+			assembler.Sscale(1/100.0, dtc.Kernels[i][j].W) // keep them small
 		}
 		dtc.ConvBiases[i] = RandXavierMat(kernelSizes[i], 1)
-		dtc.Wo[i] = RandXavierMat(kernelSizes[i], kernelSizes[i])
-		dtc.Biases[i] = RandXavierMat(kernelSizes[i], 1)
+		if dtc.UseGates {
+			dtc.Gates[i] = RandXavierMat(kernelSizes[i], kernelSizes[i])
+			dtc.Biases[i] = RandXavierMat(kernelSizes[i], 1)
+		}
 	}
 
 	for i, n := range inputSizes {
-		dtc.zeros[i] = Mat(n, 1)
+		dtc.Zeros[i] = Mat(n, 1)
 	}
 	return dtc
+}
+
+func (dtc *DilatedTemporalConvolution) OutputSize() int {
+	return dtc.KernelSizes[len(dtc.KernelSizes)-1]
 }
 
 func (dtc *DilatedTemporalConvolution) ReceptiveField(g *Graph, i, layer int, x []*Matrix) (field []int, ret *Matrix) {
@@ -49,7 +63,7 @@ func (dtc *DilatedTemporalConvolution) ReceptiveField(g *Graph, i, layer int, x 
 			input = append(input, x[i-pow])
 			field = append(field, i-pow)
 		} else {
-			input = append(input, dtc.zeros[layer])
+			input = append(input, dtc.Zeros[layer])
 		}
 		input = append(input, x[i])
 		field = append(field, i)
@@ -57,7 +71,7 @@ func (dtc *DilatedTemporalConvolution) ReceptiveField(g *Graph, i, layer int, x 
 			input = append(input, x[i+pow])
 			field = append(field, i+pow)
 		} else {
-			input = append(input, dtc.zeros[layer])
+			input = append(input, dtc.Zeros[layer])
 		}
 		//log.Printf("layer %d step %d input %v", layer, i, x)
 		ret = g.PackColumnVectors(input)
@@ -87,17 +101,20 @@ func (dtc *DilatedTemporalConvolution) GetParameters(namespace string) map[strin
 		}
 	}
 
-	for layer, bias := range dtc.Biases {
-		p[fmt.Sprintf("%s_layer%d_bias", namespace, layer)] = bias
-	}
 	for layer, bias := range dtc.ConvBiases {
 		p[fmt.Sprintf("%s_layer%d_conv_bias", namespace, layer)] = bias
 	}
-	for layer, wo := range dtc.Wo {
-		p[fmt.Sprintf("%s_layer%d_wo", namespace, layer)] = wo
+
+	if dtc.UseGates {
+		for layer, bias := range dtc.Biases {
+			p[fmt.Sprintf("%s_layer%d_bias", namespace, layer)] = bias
+		}
+		for layer, wo := range dtc.Gates {
+			p[fmt.Sprintf("%s_layer%d_wo", namespace, layer)] = wo
+		}
 	}
 
-	//p[fmt.Sprintf("%s_Wo", namespace)] = dtc.Wo
+	//p[fmt.Sprintf("%s_Wo", namespace)] = dtc.Gates
 	return p
 }
 
@@ -118,8 +135,12 @@ func (dtc *DilatedTemporalConvolution) LookFullStep(g *Graph, layer, t int) {
 		for i := range layerKernels {
 			output[i] = g.Conv(input, layerKernels[i])
 		}
-		conv_output := g.Relu(g.Add(g.Concat(output...), dtc.ConvBiases[layer]))
-		dtc.inputs[layer+1][t] = g.Relu(g.Add(g.Mul(dtc.Wo[layer], conv_output), dtc.Biases[layer]))
+		conv_output := g.BipolarElu(g.Add(g.Concat(output...), dtc.ConvBiases[layer]))
+		if dtc.UseGates {
+			dtc.inputs[layer+1][t] = g.BipolarElu(g.Add(g.Mul(dtc.Gates[layer], conv_output), dtc.Biases[layer]))
+		} else {
+			dtc.inputs[layer+1][t] = conv_output
+		}
 
 	}
 	return
@@ -142,7 +163,7 @@ func (dtc *DilatedTemporalConvolution) lookPastStep(g *Graph, layer, t int) {
 		for i := range layerKernels {
 			output[i] = g.Conv(input, layerKernels[i])
 		}
-		dtc.inputs[layer+1][t] = g.Relu(g.Add(g.Concat(output...), dtc.Biases[layer]))
+		dtc.inputs[layer+1][t] = g.BipolarElu(g.Add(g.Concat(output...), dtc.Biases[layer]))
 
 	}
 	return
@@ -155,8 +176,8 @@ func (dtc *DilatedTemporalConvolution) SetInput(input []*Matrix) {
 	for i := range dtc.Kernels {
 		dtc.inputs[i+1] = make([]*Matrix, len(input))
 	}
-	for i := range dtc.zeros {
-		assembler.Sclean(dtc.zeros[i].DW)
+	for i := range dtc.Zeros {
+		assembler.Sclean(dtc.Zeros[i].DW)
 	}
 
 }

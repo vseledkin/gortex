@@ -150,3 +150,47 @@ func RandXavierMat(rows, columns int) *Matrix {
 	}
 	return M
 }
+
+// The Layer-Sequential Unit Variance (LSUV) algorithm Mishkin & Matas, 2015 https://arxiv.org/abs/1511.06422
+func LSUVMat(rows, columns int) *Matrix {
+	if rows > 0 && columns > 0 {
+		M := RandXavierMat(rows, columns)
+		// make 1000 unit variance vectors for statistics test
+
+		var activations []float32
+		var variance float32 = 10
+		var step float32 = 0.1
+		hops := 0
+		for {
+			activations = activations[:0]
+			for range make([]interface{}, 1000) {
+				vector := RandMat(columns, 1)
+				G := &Graph{NeedsBackprop: false}
+				A := G.Mul(M, vector)
+				activations = append(activations, A.W...)
+			}
+			V := Mat(len(activations), 1)
+			V.W = activations
+
+			_, variance = Moments(V)
+			//log.Printf("%d Mean %f variance %f step %f", hops, mean, variance, step)
+			hops++
+			if variance > 1 {
+				assembler.Sscale(1-step, M.W)
+				step = step * 0.9
+			} else {
+				assembler.Sscale(1+step, M.W)
+				step = step * 0.9
+			}
+			if hops > 1000 {
+				break
+			}
+			if Abs(variance-1) < 1e-3 {
+				break
+			}
+		}
+		return M
+	} else {
+		panic("Layer-Sequential Unit Variance is only for matrixes")
+	}
+}

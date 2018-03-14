@@ -432,6 +432,42 @@ func (g *Graph) Relu(x *Matrix) *Matrix {
 	return out
 }
 
+// Bipolar Relu
+func (g *Graph) BipolarRelu(x *Matrix) *Matrix {
+	out := Mat(x.Rows, x.Columns)
+	for i := range x.W {
+		if i%2 == 0 {
+			if x.W[i] < 0 {
+				out.W[i] = 0
+			} else {
+				out.W[i] = x.W[i]
+			}
+		} else {
+			if x.W[i] > 0 {
+				out.W[i] = 0
+			} else {
+				out.W[i] = x.W[i]
+			}
+		}
+	}
+	if g.NeedsBackprop {
+		g.backprop = append(g.backprop, func() {
+			for i := range x.W {
+				if i%2 == 0 {
+					if x.W[i] > 0 {
+						x.DW[i] += out.DW[i]
+					}
+				} else {
+					if x.W[i] < 0 {
+						x.DW[i] += out.DW[i]
+					}
+				}
+			}
+		})
+	}
+	return out
+}
+
 // Self normalizing Elu-Selu implementation
 func (g *Graph) Selu(x *Matrix) *Matrix {
 	bias := float32(1.6732632423543772848170429916717)
@@ -451,6 +487,88 @@ func (g *Graph) Selu(x *Matrix) *Matrix {
 					x.DW[i] += scale * out.DW[i]
 				} else {
 					x.DW[i] += (out.W[i] + scale*bias) * out.DW[i]
+				}
+			}
+		})
+	}
+	return out
+}
+
+// Self normalizing bipolar Elu implementation
+func (g *Graph) BipolarElu(x *Matrix) *Matrix {
+	out := Mat(x.Rows, x.Columns)
+	for i := range x.W {
+		if i%2 == 0 {
+			if x.W[i] > 0 {
+				out.W[i] = x.W[i]
+			} else {
+				out.W[i] = float32(math.Exp(float64(x.W[i]))) - 1
+			}
+		} else {
+			if x.W[i] < 0 {
+				out.W[i] = x.W[i]
+			} else {
+				out.W[i] = - (float32(math.Exp(float64(-x.W[i]))) - 1)
+			}
+		}
+	}
+	if g.NeedsBackprop {
+		g.backprop = append(g.backprop, func() {
+			for i := range x.W {
+				if i%2 == 0 {
+					if x.W[i] > 0 {
+						x.DW[i] += out.DW[i]
+					} else {
+						x.DW[i] += (out.W[i] + 1) * out.DW[i]
+					}
+				} else {
+					if x.W[i] < 0 {
+						x.DW[i] += out.DW[i]
+					} else {
+						x.DW[i] += (-out.W[i] + 1) * out.DW[i]
+					}
+				}
+			}
+		})
+	}
+	return out
+}
+
+// Self normalizing bipolar Elu-Selu implementation
+func (g *Graph) BipolarSelu(x *Matrix) *Matrix {
+	bias := float32(1.6732632423543772848170429916717)
+	scale := float32(1.0507009873554804934193349852946)
+	out := Mat(x.Rows, x.Columns)
+	for i := range x.W {
+		if i%2 == 0 {
+			if x.W[i] > 0 {
+				out.W[i] = scale * x.W[i]
+			} else {
+				out.W[i] = scale * (bias*float32(math.Exp(float64(x.W[i]))) - bias)
+			}
+		} else {
+			if x.W[i] < 0 {
+				out.W[i] = scale * x.W[i]
+			} else {
+				out.W[i] = -scale * (bias*float32(math.Exp(float64(-x.W[i]))) - bias)
+			}
+		}
+	}
+	if g.NeedsBackprop {
+		g.backprop = append(g.backprop, func() {
+			for i := range x.W {
+				if i%2 == 0 {
+					if x.W[i] > 0 {
+						x.DW[i] += scale * out.DW[i]
+					} else {
+						x.DW[i] += (out.W[i] + scale*bias) * out.DW[i]
+					}
+				} else {
+					if x.W[i] < 0 {
+						x.DW[i] += scale * out.DW[i]
+					} else {
+						x.DW[i] += (-out.W[i] + scale*bias) * out.DW[i]
+					}
 				}
 			}
 		})

@@ -11,23 +11,49 @@ import (
 
 	"github.com/vseledkin/gortex/assembler"
 )
+func init() {
+	rand.Seed(time.Now().UTC().UnixNano())
+}
+
+func TestLSUVMat(t *testing.T) {
+	columns, rows := 10, 10
+	m := LSUVMat(columns, rows)
+	var activations []float32
+	for range make([]interface{}, 1000) {
+		vector := RandMat(columns, 1)
+		G := &Graph{NeedsBackprop: false}
+		A := G.Mul(m, vector)
+		activations = append(activations, A.W...)
+	}
+	V := Mat(len(activations), 1)
+	V.W = activations
+	mean, variance := Moments(V)
+	t.Logf("Mean %f variance %f", mean, variance)
+	if Abs(mean) > 1e-2 {
+		t.Fatalf("Mean must be close to zero but not %f", mean)
+	}
+	if Abs(variance-1) > 1e-2 {
+		t.Fatalf("Variance must be close to one but not %f", variance)
+	}
+
+}
 
 func TestDilatedConv(t *testing.T) {
-	kernelSizes := []int{3,3}
-	c := &DilatedTemporalConvolution{KernelSizes: kernelSizes, NumberOfKernels: []int{8,16}}
-	x := make([]int, 11)
+	kernelSizes := []int{3, 3}
+	c := &DilatedTemporalConvolution{KernelSizes: kernelSizes}
+	x := make([]*Matrix, 11)
 
 	for i := range x {
-		x[i] = i
+		x[i] = Mat(10, 1)
 	}
 
 	for l := range kernelSizes {
 		for i := range x {
-			field := c.ReceptiveField(i, l, x)
+			g := &Graph{NeedsBackprop: false}
+			field, _ := c.ReceptiveField(g, i, l, x)
 			t.Logf("layer: %d position: %d field: %+v", l, i, field)
 		}
 	}
-
 }
 
 func TestConv(t *testing.T) {
@@ -233,7 +259,7 @@ func TestGruRnnLanguageModel(t *testing.T) {
 	//t.Logf("%s\n", rnn)
 	LookupTable := RandMat(embedding_size, dic.Len()) // Lookup Table matrix
 
-	h0 := Mat(hidden_size, 1) // vector of zeros
+	h0 := Mat(hidden_size, 1) // vector of Zeros
 	// define model parameters
 	model := net.GetParameters("RNN")
 	model["LookupTable"] = LookupTable
@@ -342,7 +368,7 @@ func TestMulticoreLSTMTraining(t *testing.T) {
 	//net.ForgetGateTrick(2.0)
 	//t.Logf("%s\n", rnn)
 
-	h0 := Mat(hidden_size, 1) // vector of zeros
+	h0 := Mat(hidden_size, 1) // vector of Zeros
 	// define model parameters
 	var model map[string]*Matrix
 	var LookupTable *Matrix
@@ -606,7 +632,7 @@ func TestAutoencoder(t *testing.T) {
 			sample += dic.TokenByID(x[i])
 		}
 		G := &Graph{NeedsBackprop: true}
-		ht := Mat(hidden_size, 1) // vector of zeros
+		ht := Mat(hidden_size, 1) // vector of Zeros
 		var z *Matrix
 		// encode sequence into z
 		for i := range x {
@@ -617,7 +643,7 @@ func TestAutoencoder(t *testing.T) {
 		}
 		z = ht // this is the last state of encoder
 		// decode sequence from z
-		ht = Mat(hidden_size, 1) // vector of zeros
+		ht = Mat(hidden_size, 1) // vector of Zeros
 		var logit *Matrix
 		cost := float32(0)
 
@@ -666,7 +692,7 @@ func TestAutoencoder(t *testing.T) {
 				//z := RandMat(z_size, 1)
 				fmt.Printf("MODEL GENERATED TEXT: ")
 				G := Graph{NeedsBackprop: false}
-				ht := Mat(g_hidden_size, 1) // vector of zeros
+				ht := Mat(g_hidden_size, 1) // vector of Zeros
 				var logit *Matrix
 				for i := 0; i < max_len; i++ {
 					ht, logit = generator.Step(&G, z, ht)

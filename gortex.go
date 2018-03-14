@@ -13,7 +13,7 @@ import (
 )
 
 func init() {
-	rand.Seed(time.Now().UnixNano())
+	rand.Seed(time.Now().UTC().UnixNano())
 }
 
 func Abs(f float32) float32 {
@@ -137,6 +137,7 @@ func Exp(x *Matrix) *Matrix {
 
 	return out
 }
+
 func Moments(m *Matrix) (mean, variance float32) {
 	mean = assembler.Sum(m.W) / float32(len(m.W))
 
