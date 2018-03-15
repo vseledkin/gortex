@@ -13,4 +13,5 @@ type Classifier interface {
 	GetParameters() map[string]*g.Matrix
 	GetActiveParameters() map[string]*g.Matrix
 	GetName() string
+	Attention() map[int]float32
 }

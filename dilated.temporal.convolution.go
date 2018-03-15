@@ -34,13 +34,12 @@ func MakeDilatedTemporalConvolution(inputSize int, kernelSizes []int, useGates b
 	for i, n := range kernelSizes {
 		dtc.Kernels[i] = make([]*Matrix, n)
 		for j := range dtc.Kernels[i] {
-			dtc.Kernels[i][j] = RandXavierMat(inputSizes[i], 3)
-			assembler.Sscale(1/100.0, dtc.Kernels[i][j].W) // keep them small
+			dtc.Kernels[i][j] = LSUVMat(inputSizes[i], 3)
 		}
-		dtc.ConvBiases[i] = RandXavierMat(kernelSizes[i], 1)
+		dtc.ConvBiases[i] = Mat(kernelSizes[i], 1)
 		if dtc.UseGates {
-			dtc.Gates[i] = RandXavierMat(kernelSizes[i], kernelSizes[i])
-			dtc.Biases[i] = RandXavierMat(kernelSizes[i], 1)
+			dtc.Gates[i] = LSUVMat(kernelSizes[i], kernelSizes[i])
+			dtc.Biases[i] = Mat(kernelSizes[i], 1)
 		}
 	}
 

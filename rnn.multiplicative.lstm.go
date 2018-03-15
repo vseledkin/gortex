@@ -39,26 +39,26 @@ func (lstm *MultiplicativeLSTM) ForgetGateTrick(v float32) {
 
 func MakeMultiplicativeLSTM(x_size, h_size, out_size int) *MultiplicativeLSTM {
 	rnn := new(MultiplicativeLSTM)
-	rnn.Wmx = RandXavierMat(h_size, x_size)
-	rnn.Umh = RandXavierMat(h_size, h_size)
+	rnn.Wmx = LSUVMat(h_size, x_size)
+	rnn.Umh = LSUVMat(h_size, h_size)
 
-	rnn.Wf = RandXavierMat(h_size, x_size)
-	rnn.Uf = RandXavierMat(h_size, h_size)
-	rnn.Bf = RandXavierMat(h_size, 1) // forget gate bias initialization trick will be applied here
+	rnn.Wf = LSUVMat(h_size, x_size)
+	rnn.Uf = LSUVMat(h_size, h_size)
+	rnn.Bf = Mat(h_size, 1) // forget gate bias initialization trick will be applied here
 
-	rnn.Wi = RandXavierMat(h_size, x_size)
-	rnn.Ui = RandXavierMat(h_size, h_size)
-	rnn.Bi = RandXavierMat(h_size, 1)
+	rnn.Wi = LSUVMat(h_size, x_size)
+	rnn.Ui = LSUVMat(h_size, h_size)
+	rnn.Bi = Mat(h_size, 1)
 
-	rnn.Wo = RandXavierMat(h_size, x_size)
-	rnn.Uo = RandXavierMat(h_size, h_size)
-	rnn.Bo = RandXavierMat(h_size, 1)
+	rnn.Wo = LSUVMat(h_size, x_size)
+	rnn.Uo = LSUVMat(h_size, h_size)
+	rnn.Bo = Mat(h_size, 1)
 
-	rnn.Wc = RandXavierMat(h_size, x_size)
-	rnn.Uc = RandXavierMat(h_size, h_size)
-	rnn.Bc = RandXavierMat(h_size, 1)
+	rnn.Wc = LSUVMat(h_size, x_size)
+	rnn.Uc = LSUVMat(h_size, h_size)
+	rnn.Bc = Mat(h_size, 1)
 
-	rnn.Who = RandXavierMat(out_size, h_size)
+	rnn.Who = LSUVMat(out_size, h_size)
 	return rnn
 }
 
