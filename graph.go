@@ -795,3 +795,12 @@ func (g *Graph) Dropout(probability float32, input *Matrix) (*Matrix) {
 		return input
 	}
 }
+
+// Dropout
+func (g *Graph) AddGaussianNoise(mean, deviation float64, input *Matrix) (*Matrix) {
+	if g.NeedsBackprop {
+		return g.Add(input, RandMatMD(input.Rows, input.Columns, mean, deviation))
+	} else {
+		return input
+	}
+}
