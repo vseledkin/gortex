@@ -100,7 +100,8 @@ func Softmax(m *Matrix) *Matrix {
 		out.W[i] = float32(math.Exp(float64(m.W[i] - maxval)))
 	}
 	sum := assembler.Sum(out.W)
-	assembler.Sscale(1/sum, out.W)
+
+	assembler.Sscale(1/(sum+1e-7), out.W)
 
 	// no backward pass here needed
 	// since we will use the computed probabilities outside
@@ -120,7 +121,7 @@ func SoftmaxT(m *Matrix, T float32) *Matrix {
 		out.W[i] = float32(math.Exp(float64(m.W[i] - maxval)))
 	}
 	sum := assembler.Sum(out.W)
-	assembler.Sscale(1/sum, out.W)
+	assembler.Sscale(1/(sum+1e-7), out.W)
 
 	// no backward pass here needed
 	// since we will use the computed probabilities outside
