@@ -24,11 +24,9 @@ type Graph struct {
 }
 
 func (g *Graph) Backward() {
-	//mux.Lock()
 	for i := len(g.backprop) - 1; i >= 0; i-- {
-		g.backprop[i]() // tick!
+		g.backprop[i]()
 	}
-	//mux.Unlock()
 }
 
 func (g *Graph) InstanceNormalization(m *Matrix) *Matrix {
@@ -725,7 +723,7 @@ func (g *Graph) Crossentropy(m1 *Matrix, label uint) (cost, probability float32)
 	// compute probabilities
 	probabilities := Softmax(m1)
 	probability = probabilities.W[label]
-	cost = float32(-math.Log(float64(probability)))
+	cost = float32(-math.Log(float64(probability) + 1e-7))
 	if g.NeedsBackprop {
 		g.backprop = append(g.backprop, func() {
 			assembler.Sxpy(probabilities.W, m1.DW)
