@@ -14,7 +14,6 @@ type DilatedTemporalConvolution struct {
 	UseGates    bool
 	inputs      [][]*Matrix `json:"-"`
 	Zeros       []*Matrix
-
 }
 
 func MakeDilatedTemporalConvolution(inputSize int, kernelSizes []int, useGates bool) *DilatedTemporalConvolution {
@@ -53,27 +52,35 @@ func (dtc *DilatedTemporalConvolution) OutputSize() int {
 	return dtc.KernelSizes[len(dtc.KernelSizes)-1]
 }
 
-func (dtc *DilatedTemporalConvolution) ReceptiveField(g *Graph, i, layer int, x []*Matrix) (field []int, ret *Matrix) {
-	if i < len(x) && i >= 0 {
+func (dtc *DilatedTemporalConvolution) Pack(g *Graph, i, layer int, field []int) (ret *Matrix) {
+	input := make([]*Matrix, len(field))
+	for i, pos := range field {
+		if pos > 0 {
+			input[i] = dtc.inputs[layer][pos]
+		} else {
+			input[i] = dtc.Zeros[layer]
+		}
+	}
+	ret = g.PackColumnVectors(input)
+	return
+}
 
-		var input []*Matrix
+func (dtc *DilatedTemporalConvolution) ReceptiveField(i, layer int) (field []int) {
+	L := len(dtc.inputs[layer])
+	if i < L && i >= 0 {
 		pow := 1 << uint(layer)
 		if i > pow-1 {
-			input = append(input, x[i-pow])
 			field = append(field, i-pow)
 		} else {
-			input = append(input, dtc.Zeros[layer])
+			field = append(field, -1)
 		}
-		input = append(input, x[i])
 		field = append(field, i)
-		if i < len(x)-pow {
-			input = append(input, x[i+pow])
+		if i < L-pow {
 			field = append(field, i+pow)
 		} else {
-			input = append(input, dtc.Zeros[layer])
+			field = append(field, -1)
 		}
-		//log.Printf("layer %d step %d input %v", layer, i, x)
-		ret = g.PackColumnVectors(input)
+		//fmt.Printf("ReceptiveField at Layer: %d at Pos: %d on Len: %d Field: %+v\n", layer, i, L, field)
 		return
 	}
 	panic("wrong attempt to receive valid perceptive field")
@@ -117,16 +124,69 @@ func (dtc *DilatedTemporalConvolution) GetParameters(namespace string) map[strin
 	return p
 }
 
+func (dtc *DilatedTemporalConvolution) Check() {
+	// check that second layer looks at the start of sequence
+	L := len(dtc.inputs[1])
+	for pos := range dtc.inputs[1] {
+		if dtc.inputs[1][pos] != nil {
+			field := dtc.ReceptiveField(pos, 0)
+			hasZero := false
+			for _, f := range field {
+				if f == 0 {
+					hasZero = true
+					break
+				}
+			}
+			if !hasZero {
+				panic(fmt.Errorf("insufficient attention range %+v for sequence of %d elements pos %d at start", field, L, pos))
+			}
+			return
+		}
+	}
+	// check that second layer looks at the end of sequence
+	for pos := L - 1; pos >= 0; pos-- {
+		if dtc.inputs[1][pos] != nil {
+			field := dtc.ReceptiveField(pos, 0)
+			hasZero := false
+			for _, f := range field {
+				if f == L-1 {
+					hasZero = true
+					break
+				}
+			}
+			if !hasZero {
+				panic(fmt.Errorf("insufficient attention range %+v for sequence of %d elements pos %d at end", field, L, pos))
+			}
+			return
+		}
+	}
+
+}
+
+func (dtc *DilatedTemporalConvolution) LayerAttentionWidth(layer int) int {
+	return 2<<uint(layer+1) - 1
+}
+
+func (dtc *DilatedTemporalConvolution) MaxAttentionWidth() int {
+	return dtc.LayerAttentionWidth(len(dtc.Kernels) - 1)
+}
+
 func (dtc *DilatedTemporalConvolution) LookFullStep(g *Graph, layer, t int) {
+	//fmt.Printf("LookFullStep Layer: %d Pos: %d\n", layer, t)
 	// check if we have already computed nessesary outputs
 	if dtc.inputs[layer+1][t] == nil { // if not
-		// run recursion to calculate all nessesry prerequisites from lower layers
+		field := dtc.ReceptiveField(t, layer)
 		if layer > 0 {
-			dtc.LookFullStep(g, layer-1, t) // reqcursion!!!!!
+			// run recursion for every position which value is not calculated yet
+			for _, pos := range field {
+				if pos >= 0 && dtc.inputs[layer][pos] == nil {
+					dtc.LookFullStep(g, layer-1, pos) // reqcursion!!!!!
+				}
+			}
 		}
-
-		// get receptive field for conv neuron
-		_, input := dtc.ReceptiveField(g, t, layer, dtc.inputs[layer])
+		// now we have all inputs ready
+		// pack inputs from lover layers
+		input := dtc.Pack(g, t, layer, field)
 
 		//log.Printf("layer %d step %d input %+v", layer, t, field)
 		layerKernels := dtc.Kernels[layer]
@@ -134,14 +194,16 @@ func (dtc *DilatedTemporalConvolution) LookFullStep(g *Graph, layer, t int) {
 		for i := range layerKernels {
 			output[i] = g.Conv(input, layerKernels[i])
 		}
-		conv_output := g.BipolarElu(g.Add(g.Concat(output...), dtc.ConvBiases[layer]))
+		conv_output := g.Tanh(g.Add(g.Concat(output...), dtc.ConvBiases[layer]))
 		if dtc.UseGates {
-			dtc.inputs[layer+1][t] = g.BipolarElu(g.Add(g.Mul(dtc.Gates[layer], conv_output), dtc.Biases[layer]))
+			dtc.inputs[layer+1][t] = g.Tanh(g.Add(g.Mul(dtc.Gates[layer], conv_output), dtc.Biases[layer]))
 		} else {
 			dtc.inputs[layer+1][t] = conv_output
 		}
-
-	}
+		//fmt.Printf("Put LookFullStep Layer: %d Pos: %d for layer %d\n", layer, t, layer+1)
+	} //else {
+		//fmt.Printf("Ready LookFullStep Layer: %d Pos: %d\n", layer, t)
+	//}
 	return
 }
 
@@ -149,12 +211,21 @@ func (dtc *DilatedTemporalConvolution) lookPastStep(g *Graph, layer, t int) {
 	// check if we have already computed nessesary outputs
 	if dtc.inputs[layer+1][t] == nil { // if not
 		// run recursion to calculate all nessesry prerequisites from lower layers
+		field := dtc.ReceptiveField(t, layer)
 		if layer > 0 {
-			dtc.lookPastStep(g, layer-1, t) // reqcursion!!!!!
+			// run recursion for every position which value is not calculated yet
+			for _, pos := range field {
+				if dtc.inputs[layer][pos] == nil {
+					dtc.LookFullStep(g, layer-1, pos) // reqcursion!!!!!
+				}
+			}
 		}
+		// now we have all inputs ready
+		// pack inputs from lover layers
+		input := dtc.Pack(g, t, layer, field)
 
 		// get receptive field for conv neuron
-		_, input := dtc.ReceptiveField(g, t, layer, dtc.inputs[layer][:t+1])
+		//_, input := dtc.ReceptiveField(g, t, layer, dtc.inputs[layer][:t+1])
 
 		//log.Printf("layer %d step %d input %+v", layer, t, field)
 		layerKernels := dtc.Kernels[layer]
@@ -162,7 +233,7 @@ func (dtc *DilatedTemporalConvolution) lookPastStep(g *Graph, layer, t int) {
 		for i := range layerKernels {
 			output[i] = g.Conv(input, layerKernels[i])
 		}
-		dtc.inputs[layer+1][t] = g.BipolarElu(g.Add(g.Concat(output...), dtc.Biases[layer]))
+		dtc.inputs[layer+1][t] = g.Tanh(g.Add(g.Concat(output...), dtc.Biases[layer]))
 
 	}
 	return
@@ -197,9 +268,12 @@ func (dtc *DilatedTemporalConvolution) LookPastStep(g *Graph, t int) (y *Matrix)
 }
 
 func (dtc *DilatedTemporalConvolution) FullStep(g *Graph, t int) (y *Matrix) {
+	//fmt.Printf("FullStep Pos: %d\n", t)
 	L := len(dtc.Kernels) - 1
-	if dtc.inputs[L][t] == nil { // if inputs are not ready
+	if dtc.inputs[L+1][t] == nil { // if inputs are not ready
 		dtc.LookFullStep(g, L, t)
-	}
+	} //else {
+	//	fmt.Printf("FullStep Ready Pos: %d\n", t)
+	//}
 	return dtc.inputs[L+1][t]
 }
