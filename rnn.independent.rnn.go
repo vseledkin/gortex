@@ -2,92 +2,61 @@ package gortex
 
 import (
 	"fmt"
-
-	"github.com/vseledkin/gortex/assembler"
 )
 
-// Long Short Term Memory cell
+/*
+	The implementation is based on: https://arxiv.org/abs/1803.04831
+	Shuai Li, Wanqing Li, Chris Cook, Ce Zhu, Yanbo Gao
+	"Independently Recurrent Neural Network (IndRNN): Building A Longer and Deeper RNN"
+*/
 
-type MultiplicativeLSTM struct {
-	Wmx *Matrix
-	Umh *Matrix
+type IndRNN struct {
+	W []*Matrix
+	U [][]*Matrix
 
-	Wf *Matrix
-	Uf *Matrix
-	Bf *Matrix
-
-	Wi *Matrix
-	Ui *Matrix
-	Bi *Matrix
-
-	Wo *Matrix
-	Uo *Matrix
-	Bo *Matrix
-
-	Wc *Matrix
-	Uc *Matrix
-	Bc *Matrix
+	B []*Matrix
 
 	Who *Matrix
 }
 
-func (lstm *MultiplicativeLSTM) ForgetGateTrick(v float32) {
-	if lstm.Bf != nil {
-		assembler.Sset(v, lstm.Bf.W)
+func MakeIndRNN(layers, x_size, length, h_size, out_size int) *IndRNN {
+	rnn := new(IndRNN)
+	rnn.U = make([][]*Matrix, layers) // layers/length
+	rnn.W = make([]*Matrix, layers)   // layers/length
+	rnn.B = make([]*Matrix, layers)   // layers/length
+	for l := range rnn.U {
+		if l == 0 {
+			rnn.W[l] = LSUVMat(h_size, x_size)
+		} else {
+			rnn.W[l] = LSUVMat(h_size, h_size)
+		}
+		rnn.U[l] = make([]*Matrix, length)
+		for i := range rnn.U[l] {
+			rnn.U[l][i] = RandXavierMat(h_size, 1)
+		}
+		rnn.B[l] = Mat(h_size, 1)
 	}
-}
-
-func MakeMultiplicativeLSTM(x_size, h_size, out_size int) *MultiplicativeLSTM {
-	rnn := new(MultiplicativeLSTM)
-	rnn.Wmx = LSUVMat(h_size, x_size)
-	rnn.Umh = LSUVMat(h_size, h_size)
-
-	rnn.Wf = LSUVMat(h_size, x_size)
-	rnn.Uf = LSUVMat(h_size, h_size)
-	rnn.Bf = Mat(h_size, 1) // forget gate bias initialization trick will be applied here
-
-	rnn.Wi = LSUVMat(h_size, x_size)
-	rnn.Ui = LSUVMat(h_size, h_size)
-	rnn.Bi = Mat(h_size, 1)
-
-	rnn.Wo = LSUVMat(h_size, x_size)
-	rnn.Uo = LSUVMat(h_size, h_size)
-	rnn.Bo = Mat(h_size, 1)
-
-	rnn.Wc = LSUVMat(h_size, x_size)
-	rnn.Uc = LSUVMat(h_size, h_size)
-	rnn.Bc = Mat(h_size, 1)
 
 	rnn.Who = LSUVMat(out_size, h_size)
 	return rnn
 }
 
-func (rnn *MultiplicativeLSTM) GetParameters(namespace string) map[string]*Matrix {
-	return map[string]*Matrix{
-		namespace + "_Wmx": rnn.Wmx,
-		namespace + "_Umh": rnn.Umh,
+func (rnn *IndRNN) GetParameters(namespace string) map[string]*Matrix {
+	p := make(map[string]*Matrix)
 
-		namespace + "_Wf": rnn.Wf,
-		namespace + "_Uf": rnn.Uf,
-		namespace + "_Bf": rnn.Bf,
-
-		namespace + "_Wi": rnn.Wi,
-		namespace + "_Ui": rnn.Ui,
-		namespace + "_Bi": rnn.Bi,
-
-		namespace + "_Wo": rnn.Wo,
-		namespace + "_Uo": rnn.Uo,
-		namespace + "_Bo": rnn.Bo,
-
-		namespace + "_Wc": rnn.Wc,
-		namespace + "_Uc": rnn.Uc,
-		namespace + "_Bc": rnn.Bc,
-
-		namespace + "_Who": rnn.Who,
+	p[namespace+"_Who"] = rnn.Who
+	for l := range rnn.W {
+		p[fmt.Sprintf("%s_W_%d", namespace, l)] = rnn.W[l]
+		p[fmt.Sprintf("%s_B_%d", namespace, l)] = rnn.B[l]
+		for i := range rnn.U[l] {
+			p[fmt.Sprintf("%s_U_%d_%d", namespace, l, i)] = rnn.U[l][i]
+		}
 	}
+
+	return p
 }
 
-func (rnn *MultiplicativeLSTM) SetParameters(namespace string, parameters map[string]*Matrix) error {
+func (rnn *IndRNN) SetParameters(namespace string, parameters map[string]*Matrix) error {
 	for k, v := range rnn.GetParameters(namespace) {
 		fmt.Printf("Look for %s parameters\n", k)
 		if m, ok := parameters[k]; ok {
@@ -100,17 +69,19 @@ func (rnn *MultiplicativeLSTM) SetParameters(namespace string, parameters map[st
 	return nil
 }
 
-func (rnn *MultiplicativeLSTM) Step(g *Graph, x, h_prev, c_prev *Matrix) (h, c, y *Matrix) {
-	// make MultiplicativeLSTM computation graph at one time-step
-
-	m := g.EMul(g.Mul(rnn.Wmx, x), g.Mul(rnn.Umh, h_prev))
-	f := g.Sigmoid(g.Add(g.Add(g.Mul(rnn.Wf, x), g.Mul(rnn.Uf, m)), rnn.Bf))
-	i := g.Sigmoid(g.Add(g.Add(g.Mul(rnn.Wi, x), g.Mul(rnn.Ui, m)), rnn.Bi))
-	o := g.Sigmoid(g.Add(g.Add(g.Mul(rnn.Wo, x), g.Mul(rnn.Uo, m)), rnn.Bo))
-	c = g.Tanh(g.Add(g.Add(g.Mul(rnn.Wc, x), g.Mul(rnn.Uc, m)), rnn.Bc))
-	c = g.Add(g.EMul(f, c_prev), g.EMul(i, c))
-	h = g.EMul(o, g.Tanh(c))
-
-	y = g.Mul(rnn.Who, h)
+func (rnn *IndRNN) Step(g *Graph, i int, x *Matrix, h_prev []*Matrix) (h []*Matrix, y *Matrix) {
+	// make IndRNN computation graph at one time-step
+	h = make([]*Matrix, len(rnn.W))
+	for l := range rnn.W {
+		var input *Matrix
+		if l == 0 {
+			input = x
+		} else {
+			input = h[l-1]
+		}
+		//fmt.Printf("l: %d %d lw%d lu%d lul%d lb%d hprev%d \n", l, i, len(rnn.W), len(rnn.U), len(rnn.U), len(rnn.B), len(h_prev))
+		h[l] = g.BipolarElu(g.Add(g.Add(g.Mul(rnn.W[l], input), g.EMul(rnn.U[l][i], h_prev[l])), rnn.B[l]))
+	}
+	y = g.Mul(rnn.Who, h[len(h)-1])
 	return
 }
