@@ -96,7 +96,7 @@ func WordSampleVisitor(file string, tokenizer Tokenizer, dictionary *Dictionary,
 			}
 			epoch++
 		}
-		//line = strings.TrimSpace(line)
+		line = strings.TrimSpace(line)
 		if len(line) > 0 {
 			terms := tokenizer.Split(line)
 			sample := make([]uint, len(terms))

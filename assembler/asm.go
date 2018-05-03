@@ -7,7 +7,7 @@ var useAVX2, useAVX, useSSE4 bool
 func init() {
 	useAVX2 = supportsAVX2()
 	useAVX = supportsAVX()
-	//useAVX = false
+	//useAVX = true
 	useSSE4 = supportsSSE4()
 }
 

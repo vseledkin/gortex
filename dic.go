@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 )
 
 const UNK = "UnK"
@@ -85,6 +86,19 @@ func (d *Dictionary) Save(name string) error {
 		return err
 	}
 	f.Close()
+	return nil
+}
+
+func (d *Dictionary) Load(name string) error {
+	if f, e := os.Open(name); e != nil {
+		return e
+	} else {
+		defer f.Close()
+		decoder := json.NewDecoder(f)
+		if e = decoder.Decode(d); e != nil {
+			return e
+		}
+	}
 	return nil
 }
 
@@ -168,6 +182,28 @@ func (d *Dictionary) Decode(sequence []uint, delimiter string) string {
 	return source
 }
 
+func (d Dictionary) FromFile(file string, s Tokenizer) error {
+	if f, e := os.Open(file); e != nil {
+		return e
+	} else {
+		defer f.Close()
+		r := bufio.NewReader(f)
+		for {
+			if line, e := r.ReadString('\n'); e != nil {
+				break
+			} else {
+				line = strings.TrimSpace(line) // remove ending \n
+				if len(line) > 0 {
+					for _, token := range s.Split(line) {
+						d.Add(token)
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
 func DictionaryFromFile(file string, s Tokenizer) (*Dictionary, error) {
 	f, e := os.Open(file)
 	if e != nil {
@@ -180,7 +216,7 @@ func DictionaryFromFile(file string, s Tokenizer) (*Dictionary, error) {
 		if e != nil {
 			break
 		}
-		//line = strings.TrimSpace(line) // remove ending \n
+		line = strings.TrimSpace(line) // remove ending \n
 		if len(line) > 0 {
 			for _, token := range s.Split(line) {
 				dic.Add(token)

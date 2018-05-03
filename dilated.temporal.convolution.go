@@ -3,6 +3,7 @@ package gortex
 import (
 	"fmt"
 	"github.com/vseledkin/gortex/assembler"
+	"strings"
 )
 
 type DilatedTemporalConvolution struct {
@@ -33,11 +34,11 @@ func MakeDilatedTemporalConvolution(inputSize int, kernelSizes []int, useGates b
 	for i, n := range kernelSizes {
 		dtc.Kernels[i] = make([]*Matrix, n)
 		for j := range dtc.Kernels[i] {
-			dtc.Kernels[i][j] = LSUVMat(inputSizes[i], 3)
+			dtc.Kernels[i][j] = RandMatMD(inputSizes[i], 3, 0, 0.1)
 		}
 		dtc.ConvBiases[i] = Mat(kernelSizes[i], 1)
 		if dtc.UseGates {
-			dtc.Gates[i] = LSUVMat(kernelSizes[i], kernelSizes[i])
+			dtc.Gates[i] = RandMatMD(kernelSizes[i], kernelSizes[i], 0, 0.1)
 			dtc.Biases[i] = Mat(kernelSizes[i], 1)
 		}
 	}
@@ -55,7 +56,7 @@ func (dtc *DilatedTemporalConvolution) OutputSize() int {
 func (dtc *DilatedTemporalConvolution) Pack(g *Graph, i, layer int, field []int) (ret *Matrix) {
 	input := make([]*Matrix, len(field))
 	for i, pos := range field {
-		if pos > 0 {
+		if pos >= 0 {
 			input[i] = dtc.inputs[layer][pos]
 		} else {
 			input[i] = dtc.Zeros[layer]
@@ -123,10 +124,45 @@ func (dtc *DilatedTemporalConvolution) GetParameters(namespace string) map[strin
 	//p[fmt.Sprintf("%s_Wo", namespace)] = dtc.Gates
 	return p
 }
+func (dtc *DilatedTemporalConvolution) Layers() int {
+	return len(dtc.Kernels)
+}
+func (dtc *DilatedTemporalConvolution) Len() int {
+	return len(dtc.inputs[0])
+}
+func (dtc *DilatedTemporalConvolution) Print(pos int) {
+	L := dtc.Layers() - 1
+	pattern := make([][]interface{}, dtc.Layers()+1)
+	for i := range pattern {
+		pattern[i] = make([]interface{}, dtc.Len())
+		for j := range pattern[i] {
+			pattern[i][j] = ""
+		}
+	}
+	pattern[L+1][pos] = fmt.Sprintf("%d", pos)
+	dtc.print(L, pos, pattern)
+	fmt.Printf("Pos: %d Len: %d\n", pos, dtc.Len())
+	for l := len(pattern) - 1; l >= 0; l -- {
+		pattern[l] = append(pattern[l], l)
+		fmt.Printf(strings.Repeat("%6s", dtc.Len())+"\t|L: %6d\n", pattern[l]...)
+	}
+	fmt.Println()
+
+}
+func (dtc *DilatedTemporalConvolution) print(layer, pos int, pattern [][]interface{}) {
+	for _, f := range dtc.ReceptiveField(pos, layer) {
+		if f >= 0 {
+			pattern[layer][f] = fmt.Sprintf("%d", f)
+			if layer > 0 {
+				dtc.print(layer-1, f, pattern)
+			}
+		}
+	}
+}
 
 func (dtc *DilatedTemporalConvolution) Check() {
 	// check that second layer looks at the start of sequence
-	L := len(dtc.inputs[1])
+	L := len(dtc.inputs[0])
 	for pos := range dtc.inputs[1] {
 		if dtc.inputs[1][pos] != nil {
 			field := dtc.ReceptiveField(pos, 0)
@@ -140,7 +176,7 @@ func (dtc *DilatedTemporalConvolution) Check() {
 			if !hasZero {
 				panic(fmt.Errorf("insufficient attention range %+v for sequence of %d elements pos %d at start", field, L, pos))
 			}
-			return
+			break
 		}
 	}
 	// check that second layer looks at the end of sequence
@@ -157,7 +193,7 @@ func (dtc *DilatedTemporalConvolution) Check() {
 			if !hasZero {
 				panic(fmt.Errorf("insufficient attention range %+v for sequence of %d elements pos %d at end", field, L, pos))
 			}
-			return
+			break
 		}
 	}
 
@@ -180,7 +216,7 @@ func (dtc *DilatedTemporalConvolution) LookFullStep(g *Graph, layer, t int) {
 			// run recursion for every position which value is not calculated yet
 			for _, pos := range field {
 				if pos >= 0 && dtc.inputs[layer][pos] == nil {
-					dtc.LookFullStep(g, layer-1, pos) // reqcursion!!!!!
+					dtc.LookFullStep(g, layer-1, pos) // recursion!!!!!
 				}
 			}
 		}
@@ -194,15 +230,15 @@ func (dtc *DilatedTemporalConvolution) LookFullStep(g *Graph, layer, t int) {
 		for i := range layerKernels {
 			output[i] = g.Conv(input, layerKernels[i])
 		}
-		conv_output := g.Tanh(g.Add(g.Concat(output...), dtc.ConvBiases[layer]))
+		conv_output := g.Selu(g.Add(g.Concat(output...), dtc.ConvBiases[layer]))
 		if dtc.UseGates {
-			dtc.inputs[layer+1][t] = g.Tanh(g.Add(g.Mul(dtc.Gates[layer], conv_output), dtc.Biases[layer]))
+			dtc.inputs[layer+1][t] = g.Selu(g.Add(g.Mul(dtc.Gates[layer], conv_output), dtc.Biases[layer]))
 		} else {
 			dtc.inputs[layer+1][t] = conv_output
 		}
 		//fmt.Printf("Put LookFullStep Layer: %d Pos: %d for layer %d\n", layer, t, layer+1)
 	} //else {
-		//fmt.Printf("Ready LookFullStep Layer: %d Pos: %d\n", layer, t)
+	//fmt.Printf("Ready LookFullStep Layer: %d Pos: %d\n", layer, t)
 	//}
 	return
 }

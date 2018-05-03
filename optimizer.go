@@ -19,6 +19,8 @@ const (
 	WINDOWGRAD
 	NETSTEROV
 	POWERBALL
+	POWERSIGN
+	ADDSIGN
 )
 
 const (
@@ -39,6 +41,8 @@ type OpOp struct {
 	Method       OpMethod
 	Powerball    float32
 	Debug        bool
+	Beta         float32
+	Alpha        float32
 }
 
 type OpRet struct {
@@ -82,6 +86,12 @@ func NewOptimizer(ops OpOp) *Optimizer {
 	}
 	if op.Powerball == 0 {
 		op.Powerball = 0.1
+	}
+	if op.Alpha == 0 {
+		op.Alpha = 1.0
+	}
+	if op.Beta == 0 {
+		op.Powerball = 0.9
 	}
 	return op
 }
@@ -128,12 +138,14 @@ func (o *Optimizer) clip(w []float32) int {
 	}
 	return num_clipped
 }
+
 func sign(w float32) float32 {
 	if w >= 0 {
 		return 1
 	}
 	return -1
 }
+
 func (o *Optimizer) Step(model map[string]*Matrix) OpRet {
 	ret := OpRet{}
 	// make method specific weight optimization
@@ -216,6 +228,36 @@ func (o *Optimizer) Step(model map[string]*Matrix) OpRet {
 				}
 				assembler.Saxpy(-o.LearningRate, m.DW, m.W)
 			}
+		case POWERSIGN:
+			gsumi := o.getPreviousGradient(name, m)
+			assembler.Saxplusbysetz(o.Beta, gsumi, 1-o.Beta, m.DW, gsumi)
+			update := o.getPreviousWeight(name,m)
+			for i := range m.W {
+				update[i] = float32(math.Exp(float64(sign(gsumi[i])*sign(m.DW[i])))) * m.DW[i]
+			}
+			assembler.Saxpy(-o.LearningRate, update, m.W)
+			/*
+			t <- t + 1
+			m_t <- beta1 * m_{t-1} + (1 - beta1) * g
+			sign_decay <- sign_decay_fn(t)
+			update <- base ** (sign_decay * sign(g) * sign(m)) * g
+			variable <- variable - lr_t * update
+			*/
+		case ADDSIGN:
+			gsumi := o.getPreviousGradient(name, m)
+			assembler.Saxplusbysetz(o.Beta, gsumi, 1-o.Beta, m.DW, gsumi)
+			update := o.getPreviousWeight(name,m)
+			for i := range m.W {
+				update[i] = (o.Alpha + sign(gsumi[i])*sign(m.DW[i])) * m.DW[i]
+			}
+			assembler.Saxpy(-o.LearningRate, update, m.W)
+			/*
+			t <- t + 1
+m_t <- beta1 * m_{t-1} + (1 - beta1) * g
+sign_decay <- sign_decay_fn(t)
+update <- (alpha + sign_decay * sign(g) *sign(m)) * g
+variable <- variable - lr_t * update
+			*/
 		case SGD:
 			if o.Momentum > 0 {
 				dx := o.getPreviousGradient(name, m)

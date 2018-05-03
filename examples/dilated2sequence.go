@@ -83,7 +83,12 @@ func Train() {
 	delimiter := ""
 
 	modelFile := experiment + ".model.json"
-	model := &models.Seq2seq{}
+	kernels := []int{128, 64, 64, 64}
+	log.Printf("Dilated convolution:")
+	for i := range kernels {
+		log.Printf("Layer %d receptive field %d for %d kernels:", i, 2<<uint(i+1)-1, kernels[i])
+	}
+	model := &models.DilatedSeq2seq{}
 	if s, err := os.Stat(modelFile); err == nil && !s.IsDir() {
 		model.Load(modelFile)
 		for _, p := range model.GetParameters() { // initialize gradients
@@ -106,22 +111,23 @@ func Train() {
 			}
 		}
 
-		model = models.Seq2seq{LearningRate: 0.0005, EmbeddingSize: 128, HiddenSize: 128, EncoderOutputSize: 64, Dic: dic}.Create()
+		model = models.DilatedSeq2seq{Kernels: kernels, LearningRate: 0.01, EmbeddingSize: 64, HiddenSize: 128, Dic: dic}.Create()
 	}
 	log.Printf("First SubDictionary has %d tokens", model.Dic.First.Len())
 	model.Dic.First.Print(25)
 	log.Printf("Second SubDictionary has %d tokens", model.Dic.Second.Len())
 	model.Dic.Second.Print(25)
 
-	optimizer := gortex.NewOptimizer(gortex.OpOp{Method: gortex.WINDOWGRAD, LearningRate: model.LearningRate})
+	optimizer := gortex.NewOptimizer(gortex.OpOp{Method: gortex.POWERSIGN, LearningRate: model.LearningRate})
 
 	train_set, err := Sample(input, model.Dic, tokenizer)
 	if err != nil {
 		panic(err)
 	}
-	batchSize := 6
+	batchSize := 1
 	ma_cost := gortex.NewMovingAverage(128)
-	clones := make([]*models.Seq2seq, batchSize)
+	ma_cost.Add(100)
+	clones := make([]*models.DilatedSeq2seq, batchSize)
 	for i := range clones {
 		log.Printf("Clone S2S %d", i)
 		clones[i] = model.Clone()
@@ -190,6 +196,9 @@ func Train() {
 			log.Printf("Source: %s\n", model.Dic.First.Decode(source[0], delimiter))
 			log.Printf("Target: %s\n", model.Dic.Second.Decode(target[0], delimiter))
 			log.Printf("Decode: %s\n\n", decoded[0])
+			if step%1000 == 0 && step > 0 {
+				clones[0].Encoder.Print(1)
+			}
 			//log.Printf("Attention:\n")
 			//for i := range model.Attention.W {
 			//	log.Printf("\t%d %f\n", i, model.Attention.W[i])
@@ -219,7 +228,7 @@ func sample(c, h *gortex.Matrix, dic *gortex.Dictionary, fast_net *gortex.Multip
 	// fast network
 	for j := 0; j < 50; j++ { // max word len 32
 		//		fast_ht, fast_ct, logits = fast_net.Step(&G, G.Lookup(LookupTable, term_id), fast_ht, fast_ct)
-		ht, ct, logits = fast_net.StepExp(&G, G.Lookup(LookupTable, int(term_id)), ht, ct)
+		ht, ct, logits = fast_net.Step(&G, G.Lookup(LookupTable, int(term_id)), ht, ct)
 		probs := gortex.SoftmaxT(logits, temperature)
 		if multinomial {
 			term_id = gortex.Multinomial(probs)
@@ -240,7 +249,7 @@ func sample(c, h *gortex.Matrix, dic *gortex.Dictionary, fast_net *gortex.Multip
 func main() {
 	trainCommand := flag.NewFlagSet(train, flag.ExitOnError)
 	trainCommand.StringVar(&input, "i", "~/data/ru-en.txt", "bisequence file to train from")
-	trainCommand.StringVar(&experiment, "e", "s2s", "name of the experiment")
+	trainCommand.StringVar(&experiment, "e", "d2s", "name of the experiment")
 
 	trainAutoencoderCommand := flag.NewFlagSet(train, flag.ExitOnError)
 	trainAutoencoderCommand.StringVar(&input, "i", "input.txt", "file, - one sequence per line")
