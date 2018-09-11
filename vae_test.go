@@ -99,8 +99,8 @@ func TestCharVae(t *testing.T) {
 				sample += dic.TokenByID(x[i])
 			}
 			G := &Graph{NeedsBackprop: true}
-			ht := Mat(hidden_size, 1).OnesAs() // vector of zeros
-			ct := Mat(hidden_size, 1).OnesAs() // vector of zeros
+			ht := Mat(hidden_size, 1).OnesAs() // vector of Zeros
+			ct := Mat(hidden_size, 1).OnesAs() // vector of Zeros
 
 			// encode sequence into z
 			for i := range x {
@@ -116,8 +116,8 @@ func TestCharVae(t *testing.T) {
 			cost := float32(0)
 
 			decoded := ""
-			ht = Mat(hidden_size, 1).OnesAs() // vector of zeros
-			ct = Mat(hidden_size, 1).OnesAs() // vector of zeros
+			ht = Mat(hidden_size, 1).OnesAs() // vector of Zeros
+			ct = Mat(hidden_size, 1).OnesAs() // vector of Zeros
 			for i := range x {
 				d_steps++
 				ht, ct, logit = decoder.Step(G, distribution, ht, ct)
@@ -189,8 +189,8 @@ func TestCharVae(t *testing.T) {
 				for a := float32(0.0); a <= 1; a += 0.1 {
 					z := gg.Add(gg.MulConstant(1.0-a, z1), gg.MulConstant(a, z2))
 					decoded := ""
-					ht = Mat(hidden_size, 1).OnesAs() // vector of zeros
-					ct = Mat(hidden_size, 1).OnesAs() // vector of zeros
+					ht = Mat(hidden_size, 1).OnesAs() // vector of Zeros
+					ct = Mat(hidden_size, 1).OnesAs() // vector of Zeros
 					for range make([]struct{}, 32) {
 						ht, ct, logit = decoder.Step(gg, z, ht, ct)
 						cid, _ := MaxIV(Softmax(logit))

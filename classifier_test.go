@@ -42,7 +42,7 @@ func TestClassifier(t *testing.T) {
 			sample += dic.TokenByID(x[i])
 		}
 		G := &Graph{NeedsBackprop: true}
-		ht := Mat(hidden_size, 1) // vector of zeros
+		ht := Mat(hidden_size, 1) // vector of Zeros
 		// encode sequence into z
 		for i := range x {
 			oneHot := Mat(dic.Len(), 1)
@@ -82,7 +82,7 @@ func TestClassifier(t *testing.T) {
 					sample += dic.TokenByID(x[i])
 				}
 				G := &Graph{NeedsBackprop: false}
-				ht := Mat(hidden_size, 1) // vector of zeros
+				ht := Mat(hidden_size, 1) // vector of Zeros
 				// encode sequence into z
 				for i := range x {
 					oneHot := Mat(dic.Len(), 1)

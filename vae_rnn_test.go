@@ -114,7 +114,7 @@ func TestCharRnnVae(t *testing.T) {
 				sample += dic.TokenByID(x[i]) + delim
 			}
 			G := &Graph{NeedsBackprop: true}
-			ht := Mat(hidden_size, 1).OnesAs() // vector of zeros
+			ht := Mat(hidden_size, 1).OnesAs() // vector of Zeros
 
 			// encode sequence into z
 			for i := range x {
